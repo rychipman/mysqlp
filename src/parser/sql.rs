@@ -122,9 +122,16 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    let star = chr('*').map(|_| cst::Projects::Star);
     let non_star = select_expr_list().map(cst::Projects::NonStar);
-    star.or(non_star)
+    star().or(non_star)
+}
+
+pub fn star<I>() -> impl Parser<Input = I, Output = cst::Projects>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    chr('*').skip(many_blank()).map(|_| cst::Projects::Star)
 }
 
 pub fn select_expr_list<I>() -> impl Parser<Input = I, Output = Vec<cst::AliasedColumn>>
