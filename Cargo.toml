@@ -4,4 +4,10 @@ version = "0.1.0"
 authors = ["Ryan Chipman <ryan@ryanchipman.com>"]
 
 [dependencies]
+bytes = "0.4.10"
 combine = "3.6"
+prost = "0.4.0"
+prost-derive = "0.4.0"
+
+[build-dependencies]
+prost-build = "0.4.0"

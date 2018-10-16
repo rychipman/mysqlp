@@ -1,0 +1,272 @@
+syntax = "proto3";
+
+package mysqlp;
+
+message AST {
+    Select select = 1;
+}
+
+message Select {
+    repeated string Comments = 1;
+    string distinct = 2;
+    repeated SelectExpr select_exprs = 3;
+    repeated TableExpr table_exprs = 4;
+    Where where = 5;
+    repeated Expr group_by = 6;
+    Where having = 7;
+    repeated Order order_by = 8;
+    Limit limit = 9;
+    string lock = 10;
+}
+
+message SelectExpr {
+    StarExpr star_expr = 1;
+    NonStarExpr non_star_expr = 2;
+}
+
+message StarExpr {
+    string database_name = 1;
+    string table_name = 2;
+}
+
+message NonStarExpr {
+    Expr expr = 1;
+    string as = 2;
+}
+
+message TableExpr {
+    AliasedTableExpr aliased_table_expr = 1;
+    ParenTableExpr paren_table_expr = 2;
+    JoinTableExpr join_table_expr = 3;
+}
+
+message AliasedTableExpr {
+    SimpleTableExpr expr = 1;
+    string as = 2;
+    IndexHints hints = 3;
+}
+
+message ParenTableExpr {
+    TableExpr expr = 1;
+}
+
+message JoinTableExpr {
+    TableExpr left_expr = 1;
+    string join = 2;
+    TableExpr right_expr = 3;
+    Expr on = 4;
+    repeated ColName using = 5;
+}
+
+message ColName {
+    string database = 1;
+    string name = 2;
+    string qualifier = 3;
+}
+
+message SimpleTableExpr {
+    TableName table_name = 1;
+    Subquery subquery = 2;
+}
+
+message TableName {
+    string name = 1;
+    string Qualifier = 2;
+}
+
+message Subquery {
+    Select select = 1;
+    bool is_derived = 2;
+}
+
+message IndexHints {
+    string type = 1;
+    repeated string indexes = 2;
+}
+
+message Where {
+    string type = 1;
+    Expr expr = 2;
+}
+
+message Limit {
+    Expr offset = 1;
+    Expr row_count = 2;
+}
+
+message Order {
+    Expr expr = 1;
+
+    enum Direction {
+        ASC = 0;
+        DESC = 1;
+    }
+    Direction direction = 2;
+}
+
+message Expr {
+    AndExpr and_expr = 1;
+    OrExpr or_expr = 2;
+    XorExpr xor_expr = 3;
+    NotExpr not_expr = 4;
+    ComparisonExpr comparison_expr = 5;
+    LikeExpr like_expr = 6;
+    RegexExpr regex_expr = 7;
+    RLikeExpr r_like_expr = 8;
+    RangeCond range_cond = 9;
+    ExistsExpr exists_expr = 10;
+    DateVal date_val = 11;
+    string str_val = 12;
+    bytes num_val = 13;
+    bytes val_arg = 14;
+    bytes keyword_val = 15;
+    bool null_val = 16;
+    ColName col_name = 17;
+    bool true_val = 18;
+    bool false_val = 19;
+    bool unknown_val = 20;
+    repeated Expr val_tuple = 21;
+    Subquery subquery = 22;
+    BinaryExpr binary_expr = 23;
+    UnaryExpr unary_expr = 24;
+    FuncExpr func_expr = 25;
+    CaseExpr case_expr = 26;
+}
+
+message AndExpr {
+    Expr left = 1;
+    Expr right = 2;
+}
+
+message OrExpr {
+    Expr left = 1;
+    Expr right = 2;
+}
+
+message XorExpr {
+    Expr left = 1;
+    Expr right = 2;
+}
+
+message NotExpr {
+    Expr expr = 1;
+}
+
+message ComparisonExpr {
+    enum Operator {
+        EQ = 0;
+        LT = 1;
+        GT = 2;
+        LE = 3;
+        GE = 4;
+        NE = 5;
+        NSE = 6;
+        IN = 7;
+        NOT_IN = 8;
+        IS = 9;
+        IS_NOT = 10;
+    }
+    Operator operator = 1;
+    Expr left = 2;
+    Expr right = 3;
+
+    enum SubqueryOperator {
+        NONE = 0;
+        ALL = 1;
+        ANY = 2;
+        SOME = 3;
+    }
+    string subquery_operator = 4;
+}
+
+message LikeExpr {
+    enum Operator {
+        LIKE = 0;
+        NOT_LIKE = 1;
+    }
+    Operator operator = 1;
+    Expr left = 2;
+    Expr right = 3;
+    Expr escape = 4;
+}
+
+message RegexExpr {
+    Expr operand = 1;
+    Expr pattern = 2;
+}
+
+message RLikeExpr {
+    Expr operand = 1;
+    Expr pattern = 2;
+}
+
+message RangeCond {
+    enum Operator {
+        BETWEEN = 0;
+        NOT_BETWEEN = 1;
+    }
+    Operator operator = 1;
+    Expr left = 2;
+    Expr from = 3;
+    Expr to = 4;
+}
+
+message ExistsExpr {
+    Subquery subquery = 1;
+}
+
+message DateVal {
+    enum Name {
+        DATE = 0;
+        TIME = 1;
+        TIMESTAMP = 2;
+        DATETIME = 3;
+    }
+    string name = 1;
+    bytes val = 2;
+}
+
+message BinaryExpr {
+    enum Operator {
+        BITAND = 0;
+        BITOR = 1;
+        BITXOR = 2;
+        PLUS = 3;
+        MINUS = 4;
+        MULT = 5;
+        DIV = 6;
+        IDIV = 7;
+        MOD = 8;
+    }
+    Operator operator = 1;
+    Expr left = 2;
+    Expr right = 3;
+}
+
+message UnaryExpr {
+    enum Operator {
+        UPLUS = 0;
+        UMINUS = 1;
+        TILDA = 2;
+    }
+    Operator operator = 1;
+    Expr left = 2;
+    Expr right = 3;
+}
+
+message FuncExpr {
+    string name = 1;
+    bool distinct = 2;
+    repeated Expr select_exprs = 3;
+}
+
+message CaseExpr {
+    Expr expr = 1;
+    repeated When whens = 2;
+    Expr else = 3;
+}
+
+message When {
+    Expr cond = 1;
+    Expr val = 2;
+}
