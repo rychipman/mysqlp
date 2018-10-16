@@ -24,12 +24,75 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    let spec = (projects(), optional(limit())).map(|(pj, lim)| cst::Select {
+    let simple_spec = (projects(), optional(limit()));
+    let simple = simple_spec.map(|(pj, lim)| cst::Select {
         projects: pj,
         limit: lim,
         table: None,
     });
-    keyword("select").with(spec)
+
+    let standard_spec = (projects(), from(), optional(limit()));
+    let standard = standard_spec.map(|(pj, tbl, lim)| cst::Select {
+        projects: pj,
+        limit: lim,
+        table: Some(tbl),
+    });
+
+    keyword("select").with(standard.or(simple))
+}
+
+fn from<I>() -> impl Parser<Input = I, Output = cst::TableExpr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    keyword("from").with(table_expr())
+}
+
+fn table_expr<I>() -> impl Parser<Input = I, Output = cst::TableExpr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    choice!(table_name(), derived_table()).map(cst::TableExpr::Table)
+}
+
+fn table_name<I>() -> impl Parser<Input = I, Output = cst::Table>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    let dotted_parts = (optional(ident()), chr('.'), ident());
+    let dotted = dotted_parts.map(|(qual, _, id)| cst::TableName {
+        name: id,
+        qualifier: qual,
+        alias: None,
+    });
+    let undotted = ident().map(|id| cst::TableName {
+        name: id,
+        qualifier: None,
+        alias: None,
+    });
+    dotted.or(undotted).map(cst::Table::Name)
+}
+
+// need this to get around mutual recursion issue with select_expr
+parser!{
+    fn derived_table[I]()(I) -> cst::Table
+    where [
+        I: Stream<Item = char>,
+        I::Error: ParseError<I::Item, I::Range, I::Position>,
+    ]
+    {
+        chr('(')
+            .with(select_stmt())
+            .skip(chr(')'))
+            .map(|sel| cst::DerivedTable {
+                subquery: Box::new(sel),
+                alias: "TODO".to_string(),
+            })
+            .map(cst::Table::Derived)
+    }
 }
 
 pub fn limit<I>() -> impl Parser<Input = I, Output = cst::Limit>

@@ -108,7 +108,7 @@ pub struct ColumnName {
 #[derive(Debug)]
 pub struct TableName {
     pub name: String,
-    pub qualifier: String,
+    pub qualifier: Option<String>,
     pub alias: Option<String>,
 }
 
