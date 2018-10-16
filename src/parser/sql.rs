@@ -16,7 +16,7 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    select_stmt().map(|sel| cst::Statement::Select(sel))
+    select_stmt().map(cst::Statement::Select)
 }
 
 pub fn select_stmt<I>() -> impl Parser<Input = I, Output = cst::Select>
@@ -60,7 +60,7 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     let star = chr('*').map(|_| cst::Projects::Star);
-    let non_star = select_expr_list().map(|ls| cst::Projects::NonStar(ls));
+    let non_star = select_expr_list().map(cst::Projects::NonStar);
     star.or(non_star)
 }
 
@@ -77,11 +77,10 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    let spec = (expr(), optional(alias())).map(|(exp, als)| cst::AliasedColumn {
+    (expr(), optional(alias())).map(|(exp, als)| cst::AliasedColumn {
         expr: exp,
         alias: als,
-    });
-    spec
+    })
 }
 
 pub fn alias<I>() -> impl Parser<Input = I, Output = String>
@@ -98,7 +97,7 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    column_name().map(|clm| cst::Expr::Column(clm))
+    column_name().map(cst::Expr::Column)
 }
 
 fn column_name<I>() -> impl Parser<Input = I, Output = cst::ColumnName>
