@@ -49,13 +49,29 @@ where
     keyword("from").with(table_expr())
 }
 
-#[allow(dead_code)]
+fn join_or_table<I>() -> impl Parser<Input = I, Output = cst::Table>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    choice!(attempt(join()), table())
+}
+
+fn table<I>() -> impl Parser<Input = I, Output = cst::Table>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    choice!(table_name(), derived_table())
+}
+
 fn table_expr<I>() -> impl Parser<Input = I, Output = cst::TableExpr>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    choice!(table_name(), derived_table()).map(cst::TableExpr::Table)
+    // TODO: add table list
+    choice!(join_or_table()).map(cst::TableExpr::Table)
 }
 
 fn table_name<I>() -> impl Parser<Input = I, Output = cst::Table>
@@ -101,6 +117,31 @@ parser!{
     }
 }
 
+parser!{
+    fn join[I]()(I) -> cst::Table
+    where [
+        I: Stream<Item = char>,
+        I::Error: ParseError<I::Item, I::Range, I::Position>,
+    ]
+    {
+        (
+            table(),
+            join_kind(),
+            keyword("join"),
+            join_or_table(),
+            optional(join_predicate()),
+        )
+            .map(|(t1, kind, _, t2, pred)| {
+                cst::Table::Join(cst::Join {
+                    kind: kind,
+                    left: Box::new(t1),
+                    right: Box::new(t2),
+                    predicate: pred,
+                })
+            })
+    }
+}
+
 pub fn limit<I>() -> impl Parser<Input = I, Output = cst::Limit>
 where
     I: Stream<Item = char>,
@@ -121,6 +162,30 @@ where
         })
     );
     keyword("limit").with(spec)
+}
+
+pub fn join_kind<I>() -> impl Parser<Input = I, Output = cst::JoinKind>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    choice!(
+        keyword("left").map(|_| cst::JoinKind::Left),
+        keyword("right").map(|_| cst::JoinKind::Left),
+        keyword("inner").map(|_| cst::JoinKind::Left),
+        keyword("outter").map(|_| cst::JoinKind::Left)
+    )
+}
+
+pub fn join_predicate<I>() -> impl Parser<Input = I, Output = cst::JoinPredicate>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    choice!(
+        keyword("on").with(expr().map(cst::JoinPredicate::On)),
+        keyword("using").with(column_list().map(cst::JoinPredicate::Using))
+    )
 }
 
 pub fn projects<I>() -> impl Parser<Input = I, Output = cst::Projects>
@@ -176,6 +241,14 @@ where
     column_name().map(cst::Expr::Column)
 }
 
+fn column_list<I>() -> impl Parser<Input = I, Output = Vec<cst::ColumnName>>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    many1(column_name())
+}
+
 fn column_name<I>() -> impl Parser<Input = I, Output = cst::ColumnName>
 where
     I: Stream<Item = char>,
@@ -224,8 +297,10 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    let first = letter().map(|c: char| c.to_string());
-    let rest = many(letter().or(digit())).map(|cs: Vec<char>| cs.iter().collect::<String>());
+    let letter_or_special = || letter().or(chr('_')).or(chr('$'));
+    let first = letter_or_special().map(|c: char| c.to_string());
+    let rest =
+        many(letter_or_special().or(digit())).map(|cs: Vec<char>| cs.iter().collect::<String>());
     let ident = (first, rest).map(|(f, r)| f + &r);
     ident.skip(many_blank())
 }

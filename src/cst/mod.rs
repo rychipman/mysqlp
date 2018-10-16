@@ -89,9 +89,18 @@ pub enum Table {
 
 #[derive(Debug, PartialEq)]
 pub struct Join {
+    pub kind: JoinKind,
     pub left: Box<Table>,
     pub right: Box<Table>,
-    pub predicate: JoinPredicate,
+    pub predicate: Option<JoinPredicate>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum JoinKind {
+    Left,
+    Right,
+    Inner,
+    Outter,
 }
 
 #[derive(Debug, PartialEq)]
