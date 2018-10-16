@@ -49,6 +49,7 @@ where
     keyword("from").with(table_expr())
 }
 
+#[allow(dead_code)]
 fn table_expr<I>() -> impl Parser<Input = I, Output = cst::TableExpr>
 where
     I: Stream<Item = char>,
@@ -269,6 +270,7 @@ where
 // panic!("TODO");
 // }
 
+#[allow(dead_code)]
 fn mantissa<I>(base: u32) -> impl Parser<Input = I, Output = String>
 where
     I: Stream<Item = char>,
@@ -277,6 +279,7 @@ where
     many1(satisfy(move |c: char| c.to_digit(base).is_some()))
 }
 
+#[allow(dead_code)]
 fn uint10<I>() -> impl Parser<Input = I, Output = i64>
 where
     I: Stream<Item = char>,
@@ -285,6 +288,7 @@ where
     mantissa(10).map(|s| i64::from_str(&s).unwrap())
 }
 
+#[allow(dead_code)]
 fn int10<I>() -> impl Parser<Input = I, Output = i64>
 where
     I: Stream<Item = char>,
@@ -293,6 +297,7 @@ where
     (sign_opt(), uint10()).map(|(sgn, int)| sgn * int)
 }
 
+#[allow(dead_code)]
 fn exponent<I>() -> impl Parser<Input = I, Output = i64>
 where
     I: Stream<Item = char>,
@@ -301,6 +306,7 @@ where
     one_of("eE".chars()).with(int10())
 }
 
+#[allow(dead_code)]
 fn fraction<I>() -> impl Parser<Input = I, Output = f64>
 where
     I: Stream<Item = char>,
@@ -311,6 +317,7 @@ where
         .map(|s| f64::from_str(&format!("0.{}", s)).unwrap())
 }
 
+#[allow(dead_code)]
 fn sign<I>() -> impl Parser<Input = I, Output = i64>
 where
     I: Stream<Item = char>,
@@ -323,6 +330,7 @@ where
     })
 }
 
+#[allow(dead_code)]
 fn sign_opt<I>() -> impl Parser<Input = I, Output = i64>
 where
     I: Stream<Item = char>,
@@ -334,6 +342,7 @@ where
     })
 }
 
+#[allow(dead_code)]
 fn float<I>() -> impl Parser<Input = I, Output = f64>
 where
     I: Stream<Item = char>,
@@ -342,6 +351,7 @@ where
     (integer(), fraction()).map(|(int, fr)| int as f64 + fr)
 }
 
+#[allow(dead_code)]
 fn integer<I>() -> impl Parser<Input = I, Output = i64>
 where
     I: Stream<Item = char>,
