@@ -108,15 +108,15 @@ where
 {
     let spec = choice!(
         expr().map(|expr| cst::Limit {
-            limit: expr,
+            count: expr,
             offset: None
         }),
         (expr(), chr(','), expr()).map(|(lim, _, off)| cst::Limit {
-            limit: lim,
+            count: lim,
             offset: Some(off)
         }),
         (expr(), keyword("offset"), expr()).map(|(off, _, lim)| cst::Limit {
-            limit: lim,
+            count: lim,
             offset: Some(off)
         })
     );

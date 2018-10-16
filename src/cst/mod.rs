@@ -1,4 +1,6 @@
-#[derive(Debug)]
+mod visitor;
+
+#[derive(Debug, PartialEq)]
 pub enum Expr {
     Binary(Box<Expr>, BinaryOp, Box<Expr>),
     Unary(UnaryOp, Box<Expr>),
@@ -9,7 +11,7 @@ pub enum Expr {
     Case,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum UnaryOp {
     Plus,
     Minus,
@@ -17,7 +19,7 @@ pub enum UnaryOp {
     Not,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum BinaryOp {
     And,
     Or,
@@ -39,7 +41,7 @@ pub enum BinaryOp {
     IsNot,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Literal {
     Boolean(bool),
     Date(),
@@ -48,83 +50,83 @@ pub enum Literal {
     Null,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Number {
     Integer(i64),
     Float(f64),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Limit {
-    pub limit: Expr,
+    pub count: Expr,
     pub offset: Option<Expr>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Statement {
     Select(Select),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Select {
     pub projects: Projects,
     pub limit: Option<Limit>,
     pub table: Option<TableExpr>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TableExpr {
     List(Vec<Table>),
     Table(Table),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Table {
     Name(TableName),
     Derived(DerivedTable),
     Join(Join),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Join {
     pub left: Box<Table>,
     pub right: Box<Table>,
     pub predicate: JoinPredicate,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum JoinPredicate {
     On(Expr),
     Using(Vec<ColumnName>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ColumnName {
     pub name: String,
     pub db: Option<String>,
     pub qualifier: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TableName {
     pub name: String,
     pub qualifier: Option<String>,
     pub alias: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct DerivedTable {
     pub subquery: Box<Select>,
     pub alias: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Projects {
     Star,
     NonStar(Vec<AliasedColumn>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct AliasedColumn {
     pub expr: Expr,
     pub alias: Option<String>,
