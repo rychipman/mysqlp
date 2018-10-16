@@ -62,18 +62,23 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    let dotted_parts = (optional(ident()), chr('.'), ident());
-    let dotted = dotted_parts.map(|(qual, _, id)| cst::TableName {
-        name: id,
-        qualifier: qual,
-        alias: None,
+    let leading_dot_spec = chr('.').with(ident());
+    let leading_dot = leading_dot_spec.map(|id| (None, id));
+
+    let standard_spec = (ident(), optional(chr('.').with(ident())));
+    let standard = standard_spec.map(|(l, r)| match r {
+        Some(id) => (Some(l), id),
+        None => (None, l),
     });
-    let undotted = ident().map(|id| cst::TableName {
-        name: id,
-        qualifier: None,
-        alias: None,
-    });
-    dotted.or(undotted).map(cst::Table::Name)
+
+    leading_dot
+        .or(standard)
+        .map(|(db, tbl)| cst::TableName {
+            name: tbl,
+            qualifier: db,
+            alias: None, // TODO figure out where this should be used
+        })
+        .map(cst::Table::Name)
 }
 
 // need this to get around mutual recursion issue with select_expr
