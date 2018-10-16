@@ -27,7 +27,7 @@ where
     ).map(|(pj, lim)| {
         cst::Select{ projects: pj, limit: lim, table: None }
     });
-    strn("select").with(spec)
+    keyword("select").with(spec)
 }
 
 pub fn limit<I>() -> impl Parser<Input = I, Output = cst::Limit>
@@ -38,9 +38,9 @@ where
     let spec = choice!(
         expr().map(|expr| cst::Limit{ limit: expr, offset: None }),
         (expr(), chr(','), expr()).map(|(lim, _, off)| cst::Limit{ limit: lim, offset: Some(off) }),
-        (expr(), strn("offset"), expr()).map(|(off, _, lim)| cst::Limit{ limit: lim, offset: Some(off) })
+        (expr(), keyword("offset"), expr()).map(|(off, _, lim)| cst::Limit{ limit: lim, offset: Some(off) })
     );
-    strn("limit").with(spec)
+    keyword("limit").with(spec)
 }
 
 pub fn projects<I>() -> impl Parser<Input = I, Output = cst::Projects>
@@ -79,7 +79,7 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     let alias_name = ident().or(string());
-    optional(strn("as")).with(alias_name)
+    optional(keyword("as")).with(alias_name)
 }
 
 fn expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
@@ -106,15 +106,12 @@ where
     skip_many(one_of(" \n\t\r".chars()))
 }
 
-fn keyword_or_ident<I>() -> impl Parser<Input = I, Output = String>
+fn keyword<I>(kw: &'static str) -> impl Parser<Input = I, Output = String>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    let first = letter().map(|c: char| c.to_string());
-    let rest = many(letter().or(digit())).map(|cs: Vec<char>| cs.iter().collect::<String>());
-    let ident = (first, rest).map(|(f, r)| f + &r);
-    ident.skip(many_blank())
+    strn(kw).skip(many_blank()).map(|s| s.to_string())
 }
 
 fn string_contents<I>(delim: char) -> impl Parser<Input = I, Output = String>
@@ -133,8 +130,10 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    // TODO make sure this is valid for use as a keyword and an ident
-    keyword_or_ident()
+    let first = letter().map(|c: char| c.to_string());
+    let rest = many(letter().or(digit())).map(|cs: Vec<char>| cs.iter().collect::<String>());
+    let ident = (first, rest).map(|(f, r)| f + &r);
+    ident.skip(many_blank())
 }
 
 fn quoted_ident<I>() -> impl Parser<Input = I, Output = String>

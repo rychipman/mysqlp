@@ -14,3 +14,23 @@ pub fn parse_sql(input: &str) -> Result<cst::Statement, String> {
         Err(err) => Err(format!("{}", err)),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::parse_sql;
+
+    #[test]
+    fn test_parse_success() {
+        let cases = vec![
+            "select * from foo",
+            "select a from foo",
+            "a;sdfl",
+        ];
+        for case in cases {
+            match parse_sql(case) {
+                Ok(_) => println!("PASS"),
+                Err(msg) => panic!(format!("failed to parse query {}: {}", case, msg)),
+            }
+        }
+    }
+}
