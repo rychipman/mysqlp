@@ -124,6 +124,8 @@ parser!{
         I::Error: ParseError<I::Item, I::Range, I::Position>,
     ]
     {
+        // Note: parser combinators cannot support left recursion,
+        // so joins are treated as right associative here.
         (
             table(),
             join_kind(),

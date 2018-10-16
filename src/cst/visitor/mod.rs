@@ -91,7 +91,10 @@ pub trait Visitor {
     fn visit_join(&mut self, join: &mut Join) {
         self.visit_table(join.left.deref_mut());
         self.visit_table(join.right.deref_mut());
-        self.visit_join_predicate(&mut join.predicate);
+        match join.predicate {
+            Some(ref mut pred) => self.visit_join_predicate(pred),
+            None => (),
+        }
     }
 
     fn visit_join_predicate(&mut self, predicate: &mut JoinPredicate) {
