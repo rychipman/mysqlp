@@ -98,6 +98,19 @@ where
         .map(cst::Table::Name)
 }
 
+parser!{
+    fn expr[I]()(I) ->  cst::Expr
+    where [
+        I: Stream<Item = char>,
+        I::Error: ParseError<I::Item, I::Range, I::Position>,
+    ]
+    {
+        choice!(attempt(binary_expr()),
+                column_name().map(cst::Expr::Column),
+                literal_expr())
+    }
+}
+
 // need this to get around mutual recursion issue with select_expr
 parser!{
     fn derived_table[I]()(I) -> cst::Table
@@ -235,12 +248,21 @@ where
     optional(keyword("as")).with(alias_name)
 }
 
-fn expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
+fn binary_expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    column_name().map(cst::Expr::Column)
+    // Note that everything has to be right associative.
+    // TODO: figure out how to use chainl1 to get around this.
+    (
+        choice!(column_name().map(cst::Expr::Column), literal_expr()),
+        binary_op(),
+        expr(),
+    )
+        .map(|(simple_arg, op, recusive_arg)| {
+            cst::Expr::Binary(Box::new(simple_arg), op, Box::new(recusive_arg))
+        })
 }
 
 fn column_list<I>() -> impl Parser<Input = I, Output = Vec<cst::ColumnName>>
@@ -261,6 +283,30 @@ where
         db: None,
         qualifier: None,
     })
+}
+
+fn binary_op<I>() -> impl Parser<Input = I, Output = cst::BinaryOp>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    choice!(
+        choice!(keyword("and"), keyword("&&")).map(|_| cst::BinaryOp::And),
+        choice!(keyword("or"), keyword("||")).map(|_| cst::BinaryOp::Or),
+        keyword("xor").map(|_| cst::BinaryOp::Xor),
+        keyword("like").map(|_| cst::BinaryOp::Like),
+        keyword("regexp").map(|_| cst::BinaryOp::Regex),
+        keyword("<").map(|_| cst::BinaryOp::Lt),
+        keyword(">").map(|_| cst::BinaryOp::Gt),
+        keyword("<=").map(|_| cst::BinaryOp::Le),
+        keyword(">=").map(|_| cst::BinaryOp::Ge),
+        choice!(keyword("!="), keyword("<>")).map(|_| cst::BinaryOp::Ne),
+        keyword("<=>").map(|_| cst::BinaryOp::Nse),
+        keyword("in").map(|_| cst::BinaryOp::In),
+        attempt(keyword("not in").map(|_| cst::BinaryOp::Nin)),
+        attempt(keyword("is not").map(|_| cst::BinaryOp::Is)),
+        keyword("is").map(|_| cst::BinaryOp::IsNot)
+    )
 }
 
 fn many_blank<I>() -> impl Parser<Input = I, Output = ()>
@@ -339,14 +385,6 @@ where
     delimited_string('"').or(delimited_string('\''))
 }
 
-// fn number<I>() -> impl Parser<Input = I, Output = String>
-// where
-// I: Stream<Item = char>,
-// I::Error: ParseError<I::Item, I::Range, I::Position>,
-// {
-// panic!("TODO");
-// }
-
 #[allow(dead_code)]
 fn mantissa<I>(base: u32) -> impl Parser<Input = I, Output = String>
 where
@@ -419,7 +457,50 @@ where
     })
 }
 
-#[allow(dead_code)]
+fn literal_expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    literal().map(cst::Expr::Literal)
+}
+
+fn literal<I>() -> impl Parser<Input = I, Output = cst::Literal>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    // TODO: Dates
+    choice!(
+        string().map(cst::Literal::String),
+        keyword("null").map(|_| cst::Literal::Null),
+        boolean(),
+        number().map(cst::Literal::Number)
+    )
+}
+
+fn boolean<I>() -> impl Parser<Input = I, Output = cst::Literal>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    choice!(
+        keyword("true").map(|_| cst::Literal::Boolean(true)),
+        keyword("false").map(|_| cst::Literal::Boolean(false))
+    )
+}
+
+fn number<I>() -> impl Parser<Input = I, Output = cst::Number>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    choice!(
+        attempt(float().map(|f| cst::Number::Float(f))),
+        integer().map(|i| cst::Number::Integer(i))
+    )
+}
+
 fn float<I>() -> impl Parser<Input = I, Output = f64>
 where
     I: Stream<Item = char>,
@@ -428,7 +509,6 @@ where
     (integer(), fraction()).map(|(int, fr)| int as f64 + fr)
 }
 
-#[allow(dead_code)]
 fn integer<I>() -> impl Parser<Input = I, Output = i64>
 where
     I: Stream<Item = char>,

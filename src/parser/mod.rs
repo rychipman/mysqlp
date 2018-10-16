@@ -21,6 +21,11 @@ mod tests {
     #[test]
     fn test_parse_success() {
         let cases = vec![
+            "select * from foo left join bar using a;",
+            "select * from foo inner join bar on a;",
+            "select * from foo right join bar on 1;",
+            "select * from foo inner join bar on 1+2;",
+            "select * from foo left join bar using a,b;",
             "select * from foo;",
             "select *, 3+4 from foo;",
             "select a from foo;",
