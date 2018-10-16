@@ -1,4 +1,3 @@
-
 #[derive(Debug)]
 pub enum Expr {
     Binary(Box<Expr>, BinaryOp, Box<Expr>),

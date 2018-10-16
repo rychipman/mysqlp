@@ -187,15 +187,13 @@ where
     delimited_string('"').or(delimited_string('\''))
 }
 
-/*
-fn number<I>() -> impl Parser<Input = I, Output = String>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    panic!("TODO");
-}
-*/
+// fn number<I>() -> impl Parser<Input = I, Output = String>
+// where
+// I: Stream<Item = char>,
+// I::Error: ParseError<I::Item, I::Range, I::Position>,
+// {
+// panic!("TODO");
+// }
 
 fn mantissa<I>(base: u32) -> impl Parser<Input = I, Output = String>
 where
