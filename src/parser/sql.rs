@@ -1,10 +1,13 @@
-extern crate combine;
-use self::combine::stream::Stream;
-use self::combine::*;
-use self::combine::parser::*;
-use self::combine::parser::char::{letter,digit,char as chr,string as strn};
-
 use std::str::FromStr;
+
+use combine::{
+    parser::{
+        char::{char as chr, digit, letter, string as strn},
+        *,
+    },
+    stream::Stream,
+    *,
+};
 
 use cst;
 
@@ -21,11 +24,10 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    let spec = (
-        projects(),
-        optional(limit()),
-    ).map(|(pj, lim)| {
-        cst::Select{ projects: pj, limit: lim, table: None }
+    let spec = (projects(), optional(limit())).map(|(pj, lim)| cst::Select {
+        projects: pj,
+        limit: lim,
+        table: None,
     });
     keyword("select").with(spec)
 }
@@ -36,9 +38,18 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     let spec = choice!(
-        expr().map(|expr| cst::Limit{ limit: expr, offset: None }),
-        (expr(), chr(','), expr()).map(|(lim, _, off)| cst::Limit{ limit: lim, offset: Some(off) }),
-        (expr(), keyword("offset"), expr()).map(|(off, _, lim)| cst::Limit{ limit: lim, offset: Some(off) })
+        expr().map(|expr| cst::Limit {
+            limit: expr,
+            offset: None
+        }),
+        (expr(), chr(','), expr()).map(|(lim, _, off)| cst::Limit {
+            limit: lim,
+            offset: Some(off)
+        }),
+        (expr(), keyword("offset"), expr()).map(|(off, _, lim)| cst::Limit {
+            limit: lim,
+            offset: Some(off)
+        })
     );
     keyword("limit").with(spec)
 }
@@ -66,10 +77,10 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    let spec = (
-        expr(),
-        optional(alias()),
-    ).map(|(exp, als)| cst::AliasedColumn{ expr: exp, alias: als });
+    let spec = (expr(), optional(alias())).map(|(exp, als)| cst::AliasedColumn {
+        expr: exp,
+        alias: als,
+    });
     spec
 }
 
@@ -95,7 +106,11 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    ident().map(|id| cst::ColumnName{ name: id, db: None, qualifier: None })
+    ident().map(|id| cst::ColumnName {
+        name: id,
+        db: None,
+        qualifier: None,
+    })
 }
 
 fn many_blank<I>() -> impl Parser<Input = I, Output = ()>
@@ -122,7 +137,11 @@ where
     let valid = many1(none_of(vec![delim]));
     let escaped_delim = (chr('\\'), chr(delim)).map(|(bs, c)| vec![bs, c]);
     // TODO some more escaping stuff to do here
-    many(valid.or(escaped_delim).map(|cs| cs.iter().collect::<String>()))
+    many(
+        valid
+            .or(escaped_delim)
+            .map(|cs| cs.iter().collect::<String>()),
+    )
 }
 
 fn unquoted_ident<I>() -> impl Parser<Input = I, Output = String>
@@ -208,7 +227,6 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     one_of("eE".chars()).with(int10())
-
 }
 
 fn fraction<I>() -> impl Parser<Input = I, Output = f64>
@@ -216,7 +234,9 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    chr('.').with(mantissa(10)).map(|s| f64::from_str(&format!("0.{}", s)).unwrap())
+    chr('.')
+        .with(mantissa(10))
+        .map(|s| f64::from_str(&format!("0.{}", s)).unwrap())
 }
 
 fn sign<I>() -> impl Parser<Input = I, Output = i64>

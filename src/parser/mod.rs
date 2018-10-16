@@ -1,10 +1,9 @@
-extern crate combine;
-
-use self::combine::stream::state::State;
-use self::combine::Parser;
-use super::cst;
-
 mod sql;
+
+use combine::stream::state::State;
+use combine::Parser;
+
+use super::cst;
 
 pub fn parse_sql(input: &str) -> Result<cst::Statement, String> {
     let state = State::new(input);
@@ -21,11 +20,7 @@ mod tests {
 
     #[test]
     fn test_parse_success() {
-        let cases = vec![
-            "select * from foo",
-            "select a from foo",
-            "a;sdfl",
-        ];
+        let cases = vec!["select * from foo", "select a from foo", "a;sdfl"];
         for case in cases {
             match parse_sql(case) {
                 Ok(_) => println!("PASS"),
