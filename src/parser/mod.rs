@@ -22,6 +22,7 @@ mod tests {
     fn test_parse_success() {
         let cases = vec![
             "select * from foo;",
+            "select *, 3+4 from foo;",
             "select a from foo;",
             "select a as col_a from foo;",
             "select a col_a from foo;",
@@ -31,6 +32,21 @@ mod tests {
             match parse_sql(case) {
                 Ok(_) => println!("PASS"),
                 Err(msg) => panic!(format!("failed to parse query {}: {}", case, msg)),
+            }
+        }
+    }
+    #[test]
+    fn test_parse_failure() {
+        let cases = vec![
+            "select 3+4, * from foo;",
+            "hello",
+            "slect * form foo;",
+            ";select * from foo",
+        ];
+        for case in cases {
+            match parse_sql(case) {
+                Ok(_) => panic!(format!("succeed to parse bad query {}", case)),
+                Err(msg) => println!("PASS"),
             }
         }
     }
