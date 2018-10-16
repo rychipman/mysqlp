@@ -20,7 +20,13 @@ mod tests {
 
     #[test]
     fn test_parse_success() {
-        let cases = vec!["select * from foo", "select a from foo", "a;sdfl"];
+        let cases = vec![
+            "select * from foo;",
+            "select a from foo;",
+            "select a as col_a from foo;",
+            "select a col_a from foo;",
+            "select a from foo tbl_b;",
+        ];
         for case in cases {
             match parse_sql(case) {
                 Ok(_) => println!("PASS"),
