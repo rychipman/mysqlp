@@ -2,7 +2,7 @@ extern crate combine;
 use self::combine::stream::Stream;
 use self::combine::*;
 use self::combine::parser::*;
-use self::combine::parser::char::{letter,digit,char as chr};
+use self::combine::parser::char::{letter,digit,char as chr,string as strn};
 
 use std::str::FromStr;
 
@@ -13,12 +13,89 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    many1(satisfy(|c| c != ';')).map(|chars: Vec<char>| {
-        let s: String = chars.iter().collect();
-        cst::Statement{
-            text: s,
-        }
-    })
+    select_stmt().map(|sel| cst::Statement::Select(sel))
+}
+
+pub fn select_stmt<I>() -> impl Parser<Input = I, Output = cst::Select>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    let spec = (
+        projects(),
+        optional(limit()),
+    ).map(|(pj, lim)| {
+        cst::Select{ projects: pj, limit: lim, table: None }
+    });
+    strn("select").with(spec)
+}
+
+pub fn limit<I>() -> impl Parser<Input = I, Output = cst::Limit>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    let spec = choice!(
+        expr().map(|expr| cst::Limit{ limit: expr, offset: None }),
+        (expr(), chr(','), expr()).map(|(lim, _, off)| cst::Limit{ limit: lim, offset: Some(off) }),
+        (expr(), strn("offset"), expr()).map(|(off, _, lim)| cst::Limit{ limit: lim, offset: Some(off) })
+    );
+    strn("limit").with(spec)
+}
+
+pub fn projects<I>() -> impl Parser<Input = I, Output = cst::Projects>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    let star = chr('*').map(|_| cst::Projects::Star);
+    let non_star = select_expr_list().map(|ls| cst::Projects::NonStar(ls));
+    star.or(non_star)
+}
+
+pub fn select_expr_list<I>() -> impl Parser<Input = I, Output = Vec<cst::AliasedColumn>>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    sep_by1(select_expr(), chr(','))
+}
+
+pub fn select_expr<I>() -> impl Parser<Input = I, Output = cst::AliasedColumn>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    let spec = (
+        expr(),
+        optional(alias()),
+    ).map(|(exp, als)| cst::AliasedColumn{ expr: exp, alias: als });
+    spec
+}
+
+pub fn alias<I>() -> impl Parser<Input = I, Output = String>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    let alias_name = ident().or(string());
+    optional(strn("as")).with(alias_name)
+}
+
+fn expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    column_name().map(|clm| cst::Expr::Column(clm))
+}
+
+fn column_name<I>() -> impl Parser<Input = I, Output = cst::ColumnName>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    ident().map(|id| cst::ColumnName{ name: id, db: None, qualifier: None })
 }
 
 fn many_blank<I>() -> impl Parser<Input = I, Output = ()>
