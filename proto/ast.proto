@@ -4,8 +4,32 @@ package mysqlp;
 
 // https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L51-L55
 message Statement {
-    Select select = 1;
+    DropTable drop_table = 1;
+    Select select = 2;
+    Set set = 3;
+    Union union = 4;
+    Use use = 5;
 }
+
+// DropTable
+
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L148-L154
+message DropTable {
+    TableName name = 1;
+    bool exists = 2;
+    bool temporary = 3;
+    bytes opt = 4;
+}
+
+// Set
+
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L133-L137
+message Set {
+    repeated string comments = 1;
+    repeated Expr update_exprs = 2;
+}
+
+// Select
 
 // https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L81-L93
 message Select {
@@ -101,12 +125,6 @@ message ColName {
 message SimpleTableExpr {
     TableName table_name = 1;
     Subquery subquery = 2;
-}
-
-// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L306-L309
-message TableName {
-    string name = 1;
-    string qualifier = 2;
 }
 
 // https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L712-L716
@@ -361,4 +379,43 @@ message CaseExpr {
 message When {
     Expr cond = 1;
     Expr val = 2;
+}
+
+// Union
+
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L114-L118
+message Union {
+    // https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L120-L127
+    enum Type {
+        UNION = 0;
+        UNION_ALL = 1;
+        SET_MINUS = 2;
+        EXCEPT = 3;
+        INTERSECT = 4;
+    }
+    Type type = 1;
+
+    SelectStatement left = 2;
+    SelectStatement right = 3;
+}
+
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L71-L76
+message SelectStatement {
+    Select select = 1;
+    Union union = 2;
+}
+
+// Use
+
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L63-L65
+message Use {
+    string db_name = 1;
+}
+
+// shared
+
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L306-L309
+message TableName {
+    string name = 1;
+    string qualifier = 2;
 }
