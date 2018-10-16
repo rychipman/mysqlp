@@ -16,7 +16,7 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    select_stmt().map(cst::Statement::Select)
+    select_stmt().skip(chr(';')).map(cst::Statement::Select)
 }
 
 pub fn select_stmt<I>() -> impl Parser<Input = I, Output = cst::Select>
