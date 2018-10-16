@@ -46,7 +46,7 @@ mod tests {
         for case in cases {
             match parse_sql(case) {
                 Ok(_) => panic!(format!("succeed to parse bad query {}", case)),
-                Err(msg) => println!("PASS"),
+                Err(_msg) => println!("PASS"),
             }
         }
     }
