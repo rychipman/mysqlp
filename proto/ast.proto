@@ -2,13 +2,15 @@ syntax = "proto3";
 
 package mysqlp;
 
-message AST {
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L51-L55
+message Statement {
     Select select = 1;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L81-L93
 message Select {
-    repeated string Comments = 1;
-    string distinct = 2;
+    repeated string comments = 1;
+    bool distinct = 2;
     repeated SelectExpr select_exprs = 3;
     repeated TableExpr table_exprs = 4;
     Where where = 5;
@@ -16,87 +18,141 @@ message Select {
     Where having = 7;
     repeated Order order_by = 8;
     Limit limit = 9;
-    string lock = 10;
+
+    // https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L100-L104
+    // FIXME: ensure NONE should exist
+    enum Lock {
+        NONE = 0;
+        FOR_UPDATE = 1;
+        SHARE_MODE = 2;
+    }
+    Lock lock = 10;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L194-L198
 message SelectExpr {
     StarExpr star_expr = 1;
     NonStarExpr non_star_expr = 2;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L203-L207
 message StarExpr {
     string database_name = 1;
     string table_name = 2;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L220-L223
 message NonStarExpr {
     Expr expr = 1;
     string as = 2;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L268-L272
 message TableExpr {
     AliasedTableExpr aliased_table_expr = 1;
     ParenTableExpr paren_table_expr = 2;
     JoinTableExpr join_table_expr = 3;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L278-L284
 message AliasedTableExpr {
     SimpleTableExpr expr = 1;
     string as = 2;
     IndexHints hints = 3;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L319-L322
 message ParenTableExpr {
     TableExpr expr = 1;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L328-L335
 message JoinTableExpr {
     TableExpr left_expr = 1;
-    string join = 2;
+
+    // https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L337-L347
+    // FIXME: ensure NONE should exist
+    enum Join {
+        NONE = 0;
+        JOIN = 1;
+        STRAIGHT_JOIN = 2;
+        LEFT_JOIN = 3;
+        RIGHT_JOIN = 4;
+        CROSS_JOIN = 5;
+        NATURAL_JOIN = 6;
+        NATURAL_LEFT_JOIN = 7;
+        NATURAL_RIGHT_JOIN = 8;
+    }
+    Join join = 2;
+
     TableExpr right_expr = 3;
     Expr on = 4;
     repeated ColName using = 5;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L658-L661
 message ColName {
     string database = 1;
     string name = 2;
     string qualifier = 3;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L297-L301
 message SimpleTableExpr {
     TableName table_name = 1;
     Subquery subquery = 2;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L306-L309
 message TableName {
     string name = 1;
-    string Qualifier = 2;
+    string qualifier = 2;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L712-L716
 message Subquery {
     Select select = 1;
     bool is_derived = 2;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L359-L363
 message IndexHints {
-    string type = 1;
+    // https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L365-L369
+    // FIXME: ensure NONE should not exist
+    enum Type {
+        USE = 0;
+        IGNORE = 1;
+        FORCE = 2;
+    }
+    Type type = 1;
+
     repeated string indexes = 2;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L381-L385
 message Where {
-    string type = 1;
+    // https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L387-L391
+    enum Type {
+        WHERE = 0;
+        HAVING = 1;
+    }
+    Type type = 1;
+
     Expr expr = 2;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L857-L860
 message Limit {
     Expr offset = 1;
     Expr row_count = 2;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L841-L845
 message Order {
     Expr expr = 1;
 
+    // https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L847-L851
+    // FIXME: ensure NONE should not exist
     enum Direction {
         ASC = 0;
         DESC = 1;
@@ -104,6 +160,7 @@ message Order {
     Direction direction = 2;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L409-L413
 message Expr {
     AndExpr and_expr = 1;
     OrExpr or_expr = 2;
@@ -133,26 +190,33 @@ message Expr {
     CaseExpr case_expr = 26;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L442-L445
 message AndExpr {
     Expr left = 1;
     Expr right = 2;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L451-L454
 message OrExpr {
     Expr left = 1;
     Expr right = 2;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L460-L463
 message XorExpr {
     Expr left = 1;
     Expr right = 2;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L469-L472
 message NotExpr {
     Expr expr = 1;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L478-L483
 message ComparisonExpr {
+    // https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L485-L498
+    // FIXME: ensure NONE should not exist
     enum Operator {
         EQ = 0;
         LT = 1;
@@ -167,66 +231,87 @@ message ComparisonExpr {
         IS_NOT = 10;
     }
     Operator operator = 1;
+
     Expr left = 2;
     Expr right = 3;
 
+    // https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L500-L505
+    // FIXME: ensure NONE should exist
     enum SubqueryOperator {
         NONE = 0;
         ALL = 1;
         ANY = 2;
         SOME = 3;
     }
-    string subquery_operator = 4;
+    SubqueryOperator subquery_operator = 4;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L517-L522
 message LikeExpr {
+    // https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L511-L515
+    // FIXME: ensure NONE should not exist
     enum Operator {
         LIKE = 0;
         NOT_LIKE = 1;
     }
     Operator operator = 1;
+
     Expr left = 2;
     Expr right = 3;
     Expr escape = 4;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L552-L556
 message RegexExpr {
     Expr operand = 1;
     Expr pattern = 2;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L558-L563
 message RLikeExpr {
     Expr operand = 1;
     Expr pattern = 2;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L535-L540
 message RangeCond {
+    // https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L542-L546
+    // FIXME: ensure NONE should not exist
     enum Operator {
         BETWEEN = 0;
         NOT_BETWEEN = 1;
     }
     Operator operator = 1;
+
     Expr left = 2;
     Expr from = 3;
     Expr to = 4;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L573-L576
 message ExistsExpr {
     Subquery subquery = 1;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L582-L586
 message DateVal {
+    // https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L588-L593
+    // FIXME: ensure NONE should not exist
     enum Name {
         DATE = 0;
         TIME = 1;
         TIMESTAMP = 2;
         DATETIME = 3;
     }
-    string name = 1;
-    bytes val = 2;
+    Name name = 1;
+
+    string val = 2;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L722-L726
 message BinaryExpr {
+    // https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L728-L739
+    // FIXME: ensure NONE should not exist
     enum Operator {
         BITAND = 0;
         BITOR = 1;
@@ -239,11 +324,15 @@ message BinaryExpr {
         MOD = 8;
     }
     Operator operator = 1;
+
     Expr left = 2;
     Expr right = 3;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L745-L749
 message UnaryExpr {
+    // https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L751-L756
+    // FIXME: ensure NONE should not exist
     enum Operator {
         UPLUS = 0;
         UMINUS = 1;
@@ -254,18 +343,21 @@ message UnaryExpr {
     Expr right = 3;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L762-L767
 message FuncExpr {
     string name = 1;
     bool distinct = 2;
     repeated Expr select_exprs = 3;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L777-L782
 message CaseExpr {
     Expr expr = 1;
     repeated When whens = 2;
     Expr else = 3;
 }
 
+// https://github.com/rychipman/sqlproxy/blob/9a4997e9cd86d24ef206b8c0b29e5ccc6340b567/parser/ast.go#L798-L802
 message When {
     Expr cond = 1;
     Expr val = 2;
