@@ -123,14 +123,14 @@ parser!{
         // so joins are treated as right associative here.
         (
             table(),
-            join_kind(),
+            optional(join_kind()),
             keyword("join"),
             join_or_table(),
             optional(join_predicate()),
         )
             .map(|(t1, kind, _, t2, pred)| {
                 cst::Table::Join(cst::Join {
-                    kind: kind,
+                    kind: kind.unwrap_or(cst::JoinKind::Inner),
                     left: Box::new(t1),
                     right: Box::new(t2),
                     predicate: pred,

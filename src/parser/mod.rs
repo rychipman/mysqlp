@@ -65,7 +65,7 @@ mod tests {
         alias_col_as: ("select a as b from foo;"),
         alias_col_no_as: ("select a b from foo;"),
         alias_table: ("select a from foo tbl_f;"),
-        expressions: ("select true * 5, hello / !bar, +hello div -bar, true % false, 3 + 4, 3 + 4 * 5, 3 + 4 * hello(1,2,3+4, world);")
+        expressions: ("select true * 5, hello / !bar, +hello div -bar, true % false, 3 + 4, 3 + 4 * 5, 3 + 4 * hello(1,2,3+4, world);"),
     }
 
     macro_rules! test_parse_failure {
