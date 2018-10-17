@@ -6,8 +6,8 @@ pub enum Expr {
     Unary(UnaryOp, Box<Expr>),
     Literal(Literal),
     Column(ColumnName),
-    ScalarFunc,
-    AggFunc,
+    ScalarFunc(String, Vec<Expr>),
+    AggFunc(String, Vec<Expr>),
     Case,
 }
 
@@ -21,13 +21,25 @@ pub enum UnaryOp {
 
 #[derive(Debug, PartialEq)]
 pub enum BinaryOp {
+    BitAnd,
+    BitOr,
+    BitXor,
+    LShift,
+    RShift,
+
     And,
     Or,
     Xor,
 
-    Like,
-    Regex,
+    Plus,
+    Sub,
+    Times,
+    Div,
+    IDiv,
+    Mod,
 
+    Like,
+    Regexp,
     Eq,
     Lt,
     Gt,
@@ -35,6 +47,7 @@ pub enum BinaryOp {
     Ge,
     Ne,
     Nse,
+
     In,
     Nin,
     Is,

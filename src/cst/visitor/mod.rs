@@ -24,8 +24,8 @@ pub trait Visitor {
             Expr::Column(ref mut name) => {
                 self.visit_column_name(name);
             }
-            Expr::ScalarFunc => self.visit_scalar_func(),
-            Expr::AggFunc => self.visit_agg_func(),
+            Expr::ScalarFunc(ref mut name, ref mut args) => self.visit_scalar_func(name, args),
+            Expr::AggFunc(ref mut name, ref mut args) => self.visit_agg_func(name, args),
             Expr::Case => self.visit_case(),
         }
     }
@@ -133,9 +133,9 @@ pub trait Visitor {
         self.visit_expr(&mut column.expr);
     }
 
-    fn visit_scalar_func(&mut self) {}
+    fn visit_scalar_func(&mut self, &mut String, &mut Vec<Expr>) {}
 
-    fn visit_agg_func(&mut self) {}
+    fn visit_agg_func(&mut self, &mut String, &mut Vec<Expr>) {}
 
     fn visit_case(&mut self) {}
 }

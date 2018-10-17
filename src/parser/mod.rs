@@ -15,7 +15,18 @@ pub fn parse_sql(input: &str) -> Result<cst::Statement, String> {
 }
 
 #[cfg(test)]
+pub fn parse_expr(input: &str) -> Result<cst::Expr, String> {
+    let state = State::new(input);
+    let res = sql::expr().easy_parse(state);
+    match res {
+        Ok((stmt, _rest)) => Ok(stmt),
+        Err(err) => Err(format!("{}", err)),
+    }
+}
+
+#[cfg(test)]
 mod tests {
+    use super::parse_expr;
     use super::parse_sql;
 
     macro_rules! test_parse_success {
@@ -54,6 +65,7 @@ mod tests {
         alias_col_as: ("select a as b from foo;"),
         alias_col_no_as: ("select a b from foo;"),
         alias_table: ("select a from foo tbl_f;"),
+        expressions: ("select true * 5, hello / !bar, +hello div -bar, true % false, 3 + 4, 3 + 4 * 5, 3 + 4 * hello(1,2,3+4, world);")
     }
 
     macro_rules! test_parse_failure {

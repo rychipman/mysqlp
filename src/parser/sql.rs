@@ -93,19 +93,6 @@ where
         .map(cst::Table::Name)
 }
 
-parser!{
-    fn expr[I]()(I) ->  cst::Expr
-    where [
-        I: Stream<Item = char>,
-        I::Error: ParseError<I::Item, I::Range, I::Position>,
-    ]
-    {
-        choice!(attempt(binary_expr()),
-                column_name().map(cst::Expr::Column),
-                literal_expr())
-    }
-}
-
 // need this to get around mutual recursion issue with select_expr
 parser!{
     fn derived_table[I]()(I) -> cst::Table
@@ -243,21 +230,291 @@ where
     optional(keyword("as")).with(alias_name)
 }
 
-fn binary_expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
+parser!{
+    pub fn expr[I]()(I) ->  cst::Expr
+    where [
+        I: Stream<Item = char>,
+        I::Error: ParseError<I::Item, I::Range, I::Position>,
+    ]
+    {
+        // TODO: Add scalar functions
+        or_precidence_expr()
+    }
+}
+
+fn or_precidence_expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    // Note that everything has to be right associative.
-    // TODO: figure out how to use chainl1 to get around this.
-    (
-        choice!(column_name().map(cst::Expr::Column), literal_expr()),
-        binary_op(),
-        expr(),
-    )
-        .map(|(simple_arg, op, recusive_arg)| {
-            cst::Expr::Binary(Box::new(simple_arg), op, Box::new(recusive_arg))
+    chainl1(xor_precidence_expr(), or_precidence_op())
+}
+
+fn or_precidence_op<I>(
+) -> impl Parser<Input = I, Output = impl FnOnce(cst::Expr, cst::Expr) -> cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    keyword("or").or(keyword("||")).map(|_| {
+        |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), cst::BinaryOp::Or, Box::new(r))
+    })
+}
+
+fn xor_precidence_expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    chainl1(and_precidence_expr(), xor_precidence_op())
+}
+
+fn xor_precidence_op<I>(
+) -> impl Parser<Input = I, Output = impl FnOnce(cst::Expr, cst::Expr) -> cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    keyword("xor").map(|_| {
+        |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), cst::BinaryOp::Xor, Box::new(r))
+    })
+}
+
+fn and_precidence_expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    chainl1(comparison_precidence_expr(), and_precidence_op())
+}
+
+fn and_precidence_op<I>(
+) -> impl Parser<Input = I, Output = impl FnOnce(cst::Expr, cst::Expr) -> cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    keyword("&&").or(keyword("and")).map(|_| {
+        |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), cst::BinaryOp::And, Box::new(r))
+    })
+}
+
+fn comparison_precidence_expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    chainl1(bitwise_or_precidence_expr(), comparison_precidence_op())
+}
+
+fn comparison_precidence_op<I>(
+) -> impl Parser<Input = I, Output = impl FnOnce(cst::Expr, cst::Expr) -> cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    keyword("=")
+        .or(keyword("<=>"))
+        .or(keyword(">="))
+        .or(keyword("<="))
+        .or(keyword("<"))
+        .or(keyword(">"))
+        .or(keyword("<>"))
+        .or(keyword("!="))
+        .or(keyword("is not"))
+        .or(keyword("is"))
+        .or(keyword("like"))
+        .or(keyword("regexp"))
+        .or(keyword("not in"))
+        .or(keyword("in"))
+        .map(|op| {
+            let bin_op = match op.as_str() {
+                "=" => cst::BinaryOp::Eq,
+                "<=>" => cst::BinaryOp::Nse,
+                ">=" => cst::BinaryOp::Ge,
+                "<=" => cst::BinaryOp::Le,
+                "<" => cst::BinaryOp::Lt,
+                ">" => cst::BinaryOp::Gt,
+                "<>" => cst::BinaryOp::Ne,
+                "!=" => cst::BinaryOp::Ne,
+                "is not" => cst::BinaryOp::IsNot,
+                "is" => cst::BinaryOp::Is,
+                "like" => cst::BinaryOp::Like,
+                "regexp" => cst::BinaryOp::Regexp,
+                "not in" => cst::BinaryOp::In,
+                "in" => cst::BinaryOp::Nin,
+                _ => unreachable!(),
+            };
+            |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), bin_op, Box::new(r))
         })
+}
+
+fn bitwise_or_precidence_expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    chainl1(bitwise_and_precidence_expr(), bitwise_or_precidence_op())
+}
+
+fn bitwise_or_precidence_op<I>(
+) -> impl Parser<Input = I, Output = impl FnOnce(cst::Expr, cst::Expr) -> cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    token('|').map(|_| {
+        |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), cst::BinaryOp::And, Box::new(r))
+    })
+}
+
+fn bitwise_and_precidence_expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    chainl1(shift_precidence_expr(), bitwise_and_precidence_op())
+}
+
+fn bitwise_and_precidence_op<I>(
+) -> impl Parser<Input = I, Output = impl FnOnce(cst::Expr, cst::Expr) -> cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    token('&').map(|_| {
+        |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), cst::BinaryOp::And, Box::new(r))
+    })
+}
+
+fn shift_precidence_expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    chainl1(additive_precidence_expr(), shift_precidence_op())
+}
+
+fn shift_precidence_op<I>(
+) -> impl Parser<Input = I, Output = impl FnOnce(cst::Expr, cst::Expr) -> cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    keyword("<<").or(keyword(">>")).map(|op| {
+        let bin_op = match op.as_str() {
+            "<<" => cst::BinaryOp::LShift,
+            ">>" => cst::BinaryOp::RShift,
+            _ => unreachable!(),
+        };
+        |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), bin_op, Box::new(r))
+    })
+}
+
+fn additive_precidence_expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    chainl1(multiplicative_precidence_expr(), additive_precidence_op())
+}
+
+fn additive_precidence_op<I>(
+) -> impl Parser<Input = I, Output = impl FnOnce(cst::Expr, cst::Expr) -> cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    keyword("+").or(keyword("-")).map(|_| {
+        |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), cst::BinaryOp::And, Box::new(r))
+    })
+}
+
+fn multiplicative_precidence_expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    chainl1(bitwise_xor_expr(), multiplicative_precidence_op())
+}
+
+fn multiplicative_precidence_op<I>(
+) -> impl Parser<Input = I, Output = impl FnOnce(cst::Expr, cst::Expr) -> cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    keyword("div")
+        .or(keyword("/"))
+        .or(keyword("*"))
+        .or(keyword("%"))
+        .map(|op| {
+            let bin_op = match op.as_str() {
+                "div" => cst::BinaryOp::IDiv,
+                "/" => cst::BinaryOp::Div,
+                "*" => cst::BinaryOp::Times,
+                "%" => cst::BinaryOp::Mod,
+                _ => unreachable!(),
+            };
+            |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), bin_op, Box::new(r))
+        })
+}
+
+fn bitwise_xor_expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    chainl1(unary_expr(), bitwise_xor_op())
+}
+
+fn bitwise_xor_op<I>(
+) -> impl Parser<Input = I, Output = impl FnOnce(cst::Expr, cst::Expr) -> cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    token('^').map(|_| {
+        |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), cst::BinaryOp::Xor, Box::new(r))
+    })
+}
+
+fn unary_expr<I>() -> impl Parser<Input = I, Output = cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    choice!(
+        token('!')
+            .with(atom())
+            .map(|a| cst::Expr::Unary(cst::UnaryOp::Not, Box::new(a))),
+        token('+')
+            .with(atom())
+            .map(|a| cst::Expr::Unary(cst::UnaryOp::Plus, Box::new(a))),
+        token('-')
+            .with(atom())
+            .map(|a| cst::Expr::Unary(cst::UnaryOp::Minus, Box::new(a))),
+        token('~')
+            .with(atom())
+            .map(|a| cst::Expr::Unary(cst::UnaryOp::Tilde, Box::new(a))),
+        atom()
+    )
+}
+
+// atom is the simplest unary expressions: literal, column_name,
+// or parenthesized expression.
+fn atom<I>() -> impl Parser<Input = I, Output = cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    choice!(
+        literal_expr(),
+        attempt((ident(), token('('), expr_list(), token(')')))
+            .map(|(i, _, el, _)| cst::Expr::ScalarFunc(i, el)),
+        column_name().map(cst::Expr::Column),
+        token('(').with(expr()).skip(token(')'))
+    )
 }
 
 fn column_list<I>() -> impl Parser<Input = I, Output = Vec<cst::ColumnName>>
@@ -266,6 +523,14 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     many1(column_name())
+}
+
+fn expr_list<I>() -> impl Parser<Input = I, Output = Vec<cst::Expr>>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    many1(expr())
 }
 
 fn column_name<I>() -> impl Parser<Input = I, Output = cst::ColumnName>
@@ -278,30 +543,6 @@ where
         db: None,
         qualifier: None,
     })
-}
-
-fn binary_op<I>() -> impl Parser<Input = I, Output = cst::BinaryOp>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    choice!(
-        choice!(keyword("and"), keyword("&&")).map(|_| cst::BinaryOp::And),
-        choice!(keyword("or"), keyword("||")).map(|_| cst::BinaryOp::Or),
-        keyword("xor").map(|_| cst::BinaryOp::Xor),
-        keyword("like").map(|_| cst::BinaryOp::Like),
-        keyword("regexp").map(|_| cst::BinaryOp::Regex),
-        keyword("<").map(|_| cst::BinaryOp::Lt),
-        keyword(">").map(|_| cst::BinaryOp::Gt),
-        keyword("<=").map(|_| cst::BinaryOp::Le),
-        keyword(">=").map(|_| cst::BinaryOp::Ge),
-        choice!(keyword("!="), keyword("<>")).map(|_| cst::BinaryOp::Ne),
-        keyword("<=>").map(|_| cst::BinaryOp::Nse),
-        keyword("in").map(|_| cst::BinaryOp::In),
-        attempt(keyword("not in").map(|_| cst::BinaryOp::Nin)),
-        attempt(keyword("is not").map(|_| cst::BinaryOp::Is)),
-        keyword("is").map(|_| cst::BinaryOp::IsNot)
-    )
 }
 
 fn many_blank<I>() -> impl Parser<Input = I, Output = ()>
