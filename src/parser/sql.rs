@@ -119,8 +119,7 @@ parser!{
         I::Error: ParseError<I::Item, I::Range, I::Position>,
     ]
     {
-        // Note: parser combinators cannot support left recursion,
-        // so joins are treated as right associative here.
+        // TODO: perhaps refactor this to use chainl1 or chainr1
         (
             table(),
             optional(join_kind()),
@@ -207,7 +206,7 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    sep_by1(select_expr(), chr(','))
+    sep_by1(select_expr(), token(','))
 }
 
 pub fn select_expr<I>() -> impl Parser<Input = I, Output = cst::AliasedColumn>
@@ -341,8 +340,8 @@ where
                 "is" => cst::BinaryOp::Is,
                 "like" => cst::BinaryOp::Like,
                 "regexp" => cst::BinaryOp::Regexp,
-                "not in" => cst::BinaryOp::In,
-                "in" => cst::BinaryOp::Nin,
+                "not in" => cst::BinaryOp::Nin,
+                "in" => cst::BinaryOp::In,
                 _ => unreachable!(),
             };
             |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), bin_op, Box::new(r))
@@ -364,7 +363,7 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     token('|').map(|_| {
-        |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), cst::BinaryOp::And, Box::new(r))
+        |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), cst::BinaryOp::Or, Box::new(r))
     })
 }
 
@@ -425,8 +424,13 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    keyword("+").or(keyword("-")).map(|_| {
-        |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), cst::BinaryOp::And, Box::new(r))
+    keyword("+").or(keyword("-")).map(|op| {
+        let bin_op = match op.as_str() {
+            "+" => cst::BinaryOp::Plus,
+            "-" => cst::BinaryOp::Sub,
+            _ => unreachable!(),
+        };
+        |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), bin_op, Box::new(r))
     })
 }
 
@@ -530,7 +534,7 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    many1(expr())
+    sep_by1(expr(), token(','))
 }
 
 fn column_name<I>() -> impl Parser<Input = I, Output = cst::ColumnName>
