@@ -24,21 +24,16 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    let simple_spec = (projects(), optional(limit()));
-    let simple = simple_spec.map(|(pj, lim)| cst::Select {
-        projects: pj,
-        limit: lim,
-        table: None,
+    let prj = projects();
+    let from_opt = optional(from());
+    let lim_opt = optional(limit());
+    let spec = (prj, from_opt, lim_opt).map(|(p, f, l)| cst::Select {
+        projects: p,
+        table: f,
+        limit: l,
     });
 
-    let standard_spec = (projects(), from(), optional(limit()));
-    let standard = standard_spec.map(|(pj, tbl, lim)| cst::Select {
-        projects: pj,
-        limit: lim,
-        table: Some(tbl),
-    });
-
-    keyword("select").with(standard.or(simple))
+    keyword("select").with(spec)
 }
 
 fn from<I>() -> impl Parser<Input = I, Output = cst::TableExpr>
