@@ -18,41 +18,64 @@ pub fn parse_sql(input: &str) -> Result<cst::Statement, String> {
 mod tests {
     use super::parse_sql;
 
-    #[test]
-    fn test_parse_success() {
-        let cases = vec![
-            "select * from foo left join bar using a;",
-            "select * from foo inner join bar on a;",
-            "select * from foo right join bar on 1;",
-            "select * from foo inner join bar on 1+2;",
-            "select * from foo left join bar using a,b;",
-            "select * from foo;",
-            "select *, 3+4 from foo;",
-            "select a from foo;",
-            "select a as col_a from foo;",
-            "select a col_a from foo;",
-            "select a from foo tbl_b;",
-        ];
-        for case in cases {
-            match parse_sql(case) {
-                Ok(_) => println!("PASS"),
-                Err(msg) => panic!(format!("failed to parse query {}: {}", case, msg)),
-            }
+    macro_rules! test_parse_success {
+        ($($name:ident: $value:expr,)*) => {
+            $(
+                #[test]
+                fn $name() {
+                    let input = $value;
+                    match parse_sql(input) {
+                        Ok(_) => println!("PASS"),
+                        Err(msg) => panic!(format!("parsing failed: {}", msg)),
+                    }
+                }
+            )*
         }
     }
-    #[test]
-    fn test_parse_failure() {
-        let cases = vec![
-            "select 3+4, * from foo;",
-            "hello",
-            "slect * form foo;",
-            ";select * from foo",
-        ];
-        for case in cases {
-            match parse_sql(case) {
-                Ok(_) => panic!(format!("succeed to parse bad query {}", case)),
-                Err(_msg) => println!("PASS"),
-            }
+
+    test_parse_success!{
+        dual_int: ("select 1;"),
+        dual_string: ("select 'abc';"),
+        dual_bool: ("select true;"),
+        dual_explicitly: ("select true from dual;"),
+        star: ("select * from foo;"),
+        star_plus: ("select *, a from foo;"),
+        join_join: ("select * from foo join bar;"),
+        join_comma: ("select * from foo, bar;"),
+        join_inner: ("select * from foo inner join bar;"),
+        join_left: ("select * from foo left join bar;"),
+        join_right: ("select * from foo right join bar;"),
+        join_left_outer: ("select * from foo left outer join bar;"),
+        join_right_outer: ("select * from foo right outer join bar;"),
+        join_pred_col: ("select * from foo join bar on a;"),
+        join_pred_literal: ("select * from foo join bar on 1;"),
+        join_pred_expr: ("select * from foo join bar on a+1;"),
+        join_pred_using: ("select * from foo join bar using a,b;"),
+        alias_col_as: ("select a as b from foo;"),
+        alias_col_no_as: ("select a b from foo;"),
+        alias_table: ("select a from foo tbl_f;"),
+    }
+
+    macro_rules! test_parse_failure {
+        ($($name:ident: $value:expr,)*) => {
+            $(
+                #[test]
+                fn $name() {
+                    let input = $value;
+                    match parse_sql(input) {
+                        Ok(_) => panic!("expected parsing to fail, but it succeeded"),
+                        Err(_) => println!("PASS"),
+                    }
+                }
+            )*
         }
+    }
+
+    test_parse_failure! {
+        star_star: ("select *, * from foo;"),
+        star_after_other_column: ("select a, * from foo;"),
+        no_semicolon: ("select * from foo"),
+        semicolon_only: (";"),
+        empty: (""),
     }
 }
