@@ -496,8 +496,8 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     choice!(
-        attempt(float().map(|f| cst::Number::Float(f))),
-        integer().map(|i| cst::Number::Integer(i))
+        attempt(float().map(cst::Number::Float)),
+        integer().map(cst::Number::Integer)
     )
 }
 
