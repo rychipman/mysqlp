@@ -1,8 +1,21 @@
+use cst;
+
 pub enum Statement {
-    SelectStatement,
+    Select(SelectStatement),
     Set(Set),
     Use(Use),
     DropTable(DropTable),
+}
+
+impl Statement {
+    fn from_cst(stmt: &cst::Statement) -> Statement {
+        match stmt {
+            cst::Statement::Select(sel) => {
+                Statement::Select(SelectStatement::Select(Select::from_cst(sel)))
+            }
+            //_ => unimplemented!(),
+        }
+    }
 }
 
 pub struct Use {
@@ -27,16 +40,39 @@ pub enum SelectStatement {
 }
 
 pub struct Select {
-    pub with: With,
+    pub with: Option<With>,
     pub comments: Vec<String>,
     pub query_globals: QueryGlobals,
     pub select_exprs: Vec<SelectExpr>,
-    pub wher: Where,
-    pub group_by: GroupBy,
-    pub having: Where,
-    pub order_by: OrderBy,
-    pub limit: Limit,
+    pub where_: Option<Where>,
+    pub group_by: Option<GroupBy>,
+    pub having: Option<Where>,
+    pub order_by: Option<OrderBy>,
+    pub limit: Option<Limit>,
     pub lock: String, // TODO what is this?
+}
+
+impl Select {
+    fn from_cst(sel: &cst::Select) -> Select {
+        Select {
+            with: None,           // TODO support in cst
+            comments: Vec::new(), // TODO cst
+            query_globals: QueryGlobals {
+                distinct: false,      // TODO cst
+                straight_join: false, // TODO cst
+            },
+            select_exprs: SelectExpr::from_cst(&sel.projects),
+            where_: sel.where_clause.as_ref().map(|expr| Where {
+                expr: Expr::from_cst(expr),
+                typ: WhereType::Where,
+            }),
+            group_by: None, // TODO cst
+            having: None,   // TODO cst
+            order_by: None, // TODO
+            limit: sel.limit.as_ref().map(Limit::from_cst),
+            lock: "".to_string(), // TODO cst
+        }
+    }
 }
 
 pub struct QueryGlobals {
@@ -82,14 +118,48 @@ pub enum SelectExpr {
     NonStarExpr(NonStarExpr),
 }
 
+impl SelectExpr {
+    // TODO this is all very bad. need to fix star in cst
+    fn from_cst(s: &cst::Projects) -> Vec<SelectExpr> {
+        use cst::Projects::{NonStar, Star};
+        match s {
+            Star => vec![SelectExpr::StarExpr(StarExpr::from_cst())],
+            NonStar(cols) => cols
+                .iter()
+                .map(NonStarExpr::from_cst)
+                .map(SelectExpr::NonStarExpr)
+                .collect(),
+        }
+    }
+}
+
 pub struct StarExpr {
     pub database_name: String,
     pub table_name: String,
 }
 
+impl StarExpr {
+    // TODO this should take real params
+    fn from_cst() -> StarExpr {
+        StarExpr {
+            database_name: "".to_string(),
+            table_name: "".to_string(),
+        }
+    }
+}
+
 pub struct NonStarExpr {
     pub expr: Expr,
-    pub alias: String,
+    pub alias: Option<String>,
+}
+
+impl NonStarExpr {
+    fn from_cst(col: &cst::AliasedColumn) -> NonStarExpr {
+        NonStarExpr {
+            expr: Expr::from_cst(&col.expr),
+            alias: col.alias.clone(),
+        }
+    }
 }
 
 pub enum TableExpr {
@@ -186,6 +256,31 @@ pub enum Expr {
     UnaryExpr,
     FuncExpr,
     CaseExpr,
+}
+
+impl Expr {
+    fn from_cst(expr: &cst::Expr) -> Expr {
+        use cst::{Expr as CExpr, UnaryOp as CUnaryOp};
+        match expr {
+            CExpr::Binary(..) => Expr::And,
+            CExpr::Unary(CUnaryOp::Not, expr) => NotExpr {
+                expr: Box::new(Expr::from_cst(expr)),
+            },
+            CExpr::Unary(op, expr) => UnaryExpr {
+                expr: Box::new(Expr::from_cst(expr)),
+                operator: match op {
+                    CUnaryOp::Plus => UnaryOp::Plus,
+                    CUnaryOp::Minus => UnaryOp::Minus,
+                    CUnaryOp::Tilde => UnaryOp::Tilde,
+                },
+            },
+            CExpr::Literal(_) => Expr::And,
+            CExpr::Column(_) => Expr::And,
+            CExpr::ScalarFunc(..) => Expr::And,
+            CExpr::AggFunc(..) => Expr::And,
+            CExpr::Case => Expr::And,
+        }
+    }
 }
 
 pub struct AndExpr {
@@ -372,8 +467,17 @@ pub enum OrderDirection {
 }
 
 pub struct Limit {
-    pub offset: Expr,
     pub row_count: Expr,
+    pub offset: Option<Expr>,
+}
+
+impl Limit {
+    fn from_cst(lim: &cst::Limit) -> Limit {
+        Limit {
+            row_count: Expr::from_cst(&lim.count),
+            offset: lim.offset.as_ref().map(Expr::from_cst),
+        }
+    }
 }
 
 pub struct UpdateExpr {
