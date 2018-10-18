@@ -11,7 +11,7 @@ pub enum Expr {
     Case,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum UnaryOp {
     Plus,
     Minus,
@@ -19,7 +19,7 @@ pub enum UnaryOp {
     Not,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum BinaryOp {
     BitAnd,
     BitOr,
@@ -110,7 +110,7 @@ pub struct Join {
     pub predicate: Option<JoinPredicate>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum JoinKind {
     Left,
     Right,

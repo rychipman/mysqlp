@@ -167,12 +167,11 @@ parser!{
         // TODO: perhaps refactor this to use chainl1 or chainr1
         (
             table(),
-            optional(join_kind()),
-            keyword("join"),
+            (optional(join_kind()),keyword("join")).or((value(None),keyword(","))),
             join_or_table(),
             optional(join_predicate()),
         )
-            .map(|(t1, kind, _, t2, pred)| {
+            .map(|(t1, (kind, _), t2, pred)| {
                 cst::Table::Join(cst::Join {
                     kind: kind.unwrap_or(cst::JoinKind::Inner),
                     left: Box::new(t1),
@@ -390,7 +389,7 @@ where
                 "in" => cst::BinaryOp::In,
                 _ => unreachable!(),
             };
-            |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), bin_op, Box::new(r))
+            move |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), bin_op, Box::new(r))
         })
 }
 
@@ -452,7 +451,7 @@ where
             ">>" => cst::BinaryOp::RShift,
             _ => unreachable!(),
         };
-        |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), bin_op, Box::new(r))
+        move |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), bin_op, Box::new(r))
     })
 }
 
@@ -476,7 +475,7 @@ where
             "-" => cst::BinaryOp::Sub,
             _ => unreachable!(),
         };
-        |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), bin_op, Box::new(r))
+        move |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), bin_op, Box::new(r))
     })
 }
 
@@ -506,7 +505,7 @@ where
                 "%" => cst::BinaryOp::Mod,
                 _ => unreachable!(),
             };
-            |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), bin_op, Box::new(r))
+            move |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), bin_op, Box::new(r))
         })
 }
 
