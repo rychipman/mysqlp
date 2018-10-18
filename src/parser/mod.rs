@@ -49,6 +49,7 @@ mod tests {
         dual_string: "select 'abc';",
         dual_bool: "select true;",
         dual_explicitly: "select true from dual;",
+        a_from_foo: "select a from foo;",
         star: "select * from foo;",
         star_plus: "select *, a from foo;",
         join_join: "select * from foo join bar;",
@@ -65,8 +66,8 @@ mod tests {
         alias_col_as: "select a as b from foo;",
         alias_col_no_as: "select a b from foo;",
         alias_table: "select a from foo tbl_f;",
-        select_where_simple: "select a from foo where a=b;",
-        select_orderby: "select a from bar order by a;",
+        select_where_simple: "select * from foo where a;",
+        select_orderby: "select * from bar order by a;",
         expressions: "select 1,1+2,3,hello(world,dragon);",
     }
 

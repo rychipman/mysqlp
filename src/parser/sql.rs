@@ -271,7 +271,8 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     let alias_name = ident().or(string());
-    optional(keyword("as")).with(alias_name)
+    // TODO: figure out how to make "as" optional without breaking stuff
+    keyword("as").with(alias_name)
 }
 
 parser!{
