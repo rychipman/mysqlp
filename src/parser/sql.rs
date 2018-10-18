@@ -578,7 +578,7 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    many1(column_name())
+    sep_by1(column_name(), keyword(","))
 }
 
 fn expr_list<I>() -> impl Parser<Input = I, Output = Vec<cst::Expr>>
