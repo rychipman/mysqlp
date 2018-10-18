@@ -165,9 +165,11 @@ parser!{
     ]
     {
         // TODO: perhaps refactor this to use chainl1 or chainr1
+        let explicit_join = (optional(join_kind()), keyword("join"));
+        let comma_join = (value(None), keyword(","));
         (
             table(),
-            (optional(join_kind()),keyword("join")).or((value(None),keyword(","))),
+            explicit_join.or(comma_join),
             join_or_table(),
             optional(join_predicate()),
         )
