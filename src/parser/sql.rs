@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::str::FromStr;
 
 use combine::{
@@ -10,6 +11,30 @@ use combine::{
 };
 
 use cst;
+
+lazy_static! {
+    static ref AGG_FUNCTIONS: HashSet<&'static str> = {
+        let mut s = HashSet::new();
+        s.insert("avg");
+        s.insert("bit_and");
+        s.insert("bit_or");
+        s.insert("count");
+        s.insert("group_concat");
+        s.insert("json_arrayagg");
+        s.insert("json_objectagg");
+        s.insert("max");
+        s.insert("min");
+        s.insert("std");
+        s.insert("stddev");
+        s.insert("stddev_pop");
+        s.insert("stddev_samp");
+        s.insert("sum");
+        s.insert("var_pop");
+        s.insert("var_samp");
+        s.insert("variance");
+        s
+    };
+}
 
 pub fn statement<I>() -> impl Parser<Input = I, Output = cst::Statement>
 where
@@ -206,7 +231,7 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    sep_by1(select_expr(), token(','))
+    sep_by1(select_expr(), keyword(","))
 }
 
 pub fn select_expr<I>() -> impl Parser<Input = I, Output = cst::AliasedColumn>
@@ -362,7 +387,7 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    token('|').map(|_| {
+    keyword("|").map(|_| {
         |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), cst::BinaryOp::Or, Box::new(r))
     })
 }
@@ -381,7 +406,7 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    token('&').map(|_| {
+    keyword("&").map(|_| {
         |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), cst::BinaryOp::And, Box::new(r))
     })
 }
@@ -426,7 +451,7 @@ where
 {
     keyword("+").or(keyword("-")).map(|op| {
         let bin_op = match op.as_str() {
-            "+" => cst::BinaryOp::Plus,
+            "+" => cst::BinaryOp::Add,
             "-" => cst::BinaryOp::Sub,
             _ => unreachable!(),
         };
@@ -478,7 +503,7 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    token('^').map(|_| {
+    keyword("^").map(|_| {
         |l: cst::Expr, r: cst::Expr| cst::Expr::Binary(Box::new(l), cst::BinaryOp::Xor, Box::new(r))
     })
 }
@@ -489,16 +514,16 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     choice!(
-        token('!')
+        keyword("!")
             .with(atom())
             .map(|a| cst::Expr::Unary(cst::UnaryOp::Not, Box::new(a))),
-        token('+')
+        keyword("+")
             .with(atom())
             .map(|a| cst::Expr::Unary(cst::UnaryOp::Plus, Box::new(a))),
-        token('-')
+        keyword("-")
             .with(atom())
             .map(|a| cst::Expr::Unary(cst::UnaryOp::Minus, Box::new(a))),
-        token('~')
+        keyword("~")
             .with(atom())
             .map(|a| cst::Expr::Unary(cst::UnaryOp::Tilde, Box::new(a))),
         atom()
@@ -514,10 +539,17 @@ where
 {
     choice!(
         literal_expr(),
-        attempt((ident(), token('('), expr_list(), token(')')))
-            .map(|(i, _, el, _)| cst::Expr::ScalarFunc(i, el)),
+        attempt((ident(), keyword("("), expr_list(), keyword(")")))
+            .skip(many_blank())
+            .map(
+                |(func_name, _, el, _)| if AGG_FUNCTIONS.contains(func_name.as_str()) {
+                    cst::Expr::AggFunc(func_name, el)
+                } else {
+                    cst::Expr::ScalarFunc(func_name, el)
+                }
+            ),
         column_name().map(cst::Expr::Column),
-        token('(').with(expr()).skip(token(')'))
+        keyword("(").with(expr()).skip(keyword(")"))
     )
 }
 
@@ -534,7 +566,7 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    sep_by1(expr(), token(','))
+    sep_by1(expr(), keyword(","))
 }
 
 fn column_name<I>() -> impl Parser<Input = I, Output = cst::ColumnName>
@@ -725,8 +757,12 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     choice!(
-        keyword("true").map(|_| cst::Literal::Boolean(true)),
-        keyword("false").map(|_| cst::Literal::Boolean(false))
+        keyword("true")
+            .skip(many_blank())
+            .map(|_| cst::Literal::Boolean(true)),
+        keyword("false")
+            .skip(many_blank())
+            .map(|_| cst::Literal::Boolean(false))
     )
 }
 
@@ -746,7 +782,9 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    (integer(), fraction()).map(|(int, fr)| int as f64 + fr)
+    (integer(), fraction())
+        .skip(many_blank())
+        .map(|(int, fr)| int as f64 + fr)
 }
 
 fn integer<I>() -> impl Parser<Input = I, Output = i64>
@@ -755,5 +793,5 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     // TODO other bases, signs?
-    uint10()
+    uint10().skip(many_blank())
 }

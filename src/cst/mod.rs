@@ -31,7 +31,7 @@ pub enum BinaryOp {
     Or,
     Xor,
 
-    Plus,
+    Add,
     Sub,
     Times,
     Div,

@@ -68,39 +68,59 @@ mod tests {
         expressions: "select 1,1+2,3,hello(world,dragon);",
     }
 
-    macro_rules! test_parse_expr_success {
-        ($($name:ident: $value:expr,)*) => {
+    macro_rules! test_parse_expr {
+        ($($name:ident: $value:expr => $output:expr,)*) => {
             $(
                 #[test]
                 fn $name() {
                     let input = $value;
-                    match parse_expr(input) {
-                        Ok(_) => println!("PASS"),
-                        Err(msg) => panic!(format!("parsing failed: {}", msg)),
-                    }
+                    let output = $output;
+                    assert!(parse_expr(input) == output, "input = {}, output = {:?}", input, output);
                 }
             )*
         }
     }
 
-    test_parse_expr_success!{
-        add: "3+hello+world",
-        sub: "3-4+5",
-        add_sub: "3+4-5",
-        modulo: "3%4%5",
-        func: "hello(world)",
-        func_multi_arg: "hello(goodbye, world, dragon)",
-        unary: "+3 - - 4",
+    macro_rules! b {
+        ($e:expr) => {
+            Box::new($e)
+        };
     }
 
-    #[test]
-    fn stuff() {
-        println!("{:?}", parse_expr("3 * 4 + 5"));
-        println!("{:?}", parse_expr("+3--4"));
-        println!("{:?}", parse_expr("hello(goodbye)"));
-        println!("{:?}", parse_expr("hello(goodbye,world,dragon)"));
-        panic!();
-    }
+    use cst::BinaryOp::*;
+    use cst::Expr::*;
+    use cst::Literal::*;
+    use cst::Number::*;
+    use cst::UnaryOp::*;
+    use cst::*;
+
+    test_parse_expr!{
+         bool_mul_plus: "true * false + true" =>
+    Ok(Binary(
+             b!(Binary(b!(Literal(Boolean(true))), Times, b!(Literal(Boolean(false))))),
+             Add,
+             b!(Literal(Boolean(true))))),
+         int_mul_plus: "3 * 4 + 5" =>
+    Ok(Binary(
+            b!(Binary(b!(Literal(Number(Integer(3)))), Times, b!(Literal(Number(Integer(4)))))),
+            Add,
+            b!(Literal(Number(Integer(5)))))),
+         unary: "+3 - - 4" =>
+    Ok(Binary(
+            b!(Unary(Plus, b!(Literal(Number(Integer(3)))))),
+            Sub,
+            b!(Unary(Minus, b!(Literal(Number(Integer(4)))))))),
+         single_arg_func: "hello ( goodbye )" =>
+    Ok(ScalarFunc("hello".to_string(),
+                  vec![Column(ColumnName { name: "goodbye".to_string(), db: None, qualifier: None })])),
+         multi_arg_func: "hello(goodbye, world, dragon)" =>
+    Ok(ScalarFunc("hello".to_string(),
+                  vec![Column(ColumnName { name: "goodbye".to_string(), db: None, qualifier: None }),
+                       Column(ColumnName { name: "world".to_string(), db: None, qualifier: None }),
+                       Column(ColumnName { name: "dragon".to_string(), db: None, qualifier: None })])),
+        _agg_func: "avg(34)" =>
+    Ok(AggFunc("avg".to_string(), vec![Literal(Number(Integer(34)))])),
+     }
 
     macro_rules! test_parse_failure {
         ($($name:ident: $value:expr,)*) => {
