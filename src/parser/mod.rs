@@ -65,6 +65,8 @@ mod tests {
         alias_col_as: "select a as b from foo;",
         alias_col_no_as: "select a b from foo;",
         alias_table: "select a from foo tbl_f;",
+        select_where_simple: "select a from foo where a=b;",
+        select_orderby: "select a from bar order by a;",
         expressions: "select 1,1+2,3,hello(world,dragon);",
     }
 
@@ -74,8 +76,9 @@ mod tests {
                 #[test]
                 fn $name() {
                     let input = $value;
-                    let output = $output;
-                    assert!(parse_expr(input) == output, "input = {}, output = {:?}", input, output);
+                    let expected = $output;
+                    let parsed = parse_expr(input);
+                    assert!(parsed == expected, "parsed = {:?}, expected = {:?}", parsed, expected);
                 }
             )*
         }
@@ -118,8 +121,13 @@ mod tests {
                   vec![Column(ColumnName { name: "goodbye".to_string(), db: None, qualifier: None }),
                        Column(ColumnName { name: "world".to_string(), db: None, qualifier: None }),
                        Column(ColumnName { name: "dragon".to_string(), db: None, qualifier: None })])),
-        _agg_func: "avg(34)" =>
+         agg_func: "avg(34)" =>
     Ok(AggFunc("avg".to_string(), vec![Literal(Number(Integer(34)))])),
+         not_in: "a   not    in    b" =>
+    Ok(Binary(
+            b!(Column(ColumnName { name: "a".to_string(), db: None, qualifier: None })),
+            Nin,
+            b!(Column(ColumnName { name: "b".to_string(), db: None, qualifier: None })))),
      }
 
     macro_rules! test_parse_failure {

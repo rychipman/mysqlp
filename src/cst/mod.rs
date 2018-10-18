@@ -83,8 +83,10 @@ pub enum Statement {
 #[derive(Debug, PartialEq)]
 pub struct Select {
     pub projects: Projects,
-    pub limit: Option<Limit>,
     pub table: Option<TableExpr>,
+    pub where_clause: Option<Expr>,
+    pub limit: Option<Limit>,
+    pub orderby: Option<Expr>,
 }
 
 #[derive(Debug, PartialEq)]

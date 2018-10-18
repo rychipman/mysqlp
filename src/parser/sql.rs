@@ -51,11 +51,15 @@ where
 {
     let prj = projects();
     let from_opt = optional(from());
+    let where_opt = optional(where_clause());
     let lim_opt = optional(limit());
-    let spec = (prj, from_opt, lim_opt).map(|(p, f, l)| cst::Select {
+    let ord_opt = optional(orderby());
+    let spec = (prj, from_opt, where_opt, lim_opt, ord_opt).map(|(p, f, w, l, o)| cst::Select {
         projects: p,
         table: f,
+        where_clause: w,
         limit: l,
+        orderby: o,
     });
 
     keyword("select").with(spec)
@@ -67,6 +71,22 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     keyword("from").with(table_expr())
+}
+
+fn where_clause<I>() -> impl Parser<Input = I, Output = cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    keyword("where").with(expr())
+}
+
+fn orderby<I>() -> impl Parser<Input = I, Output = cst::Expr>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    keywords2("order", "by").with(expr())
 }
 
 fn join_or_table<I>() -> impl Parser<Input = I, Output = cst::Table>
@@ -345,11 +365,11 @@ where
         .or(keyword(">"))
         .or(keyword("<>"))
         .or(keyword("!="))
-        .or(keyword("is not"))
+        .or(keywords2("is", "not"))
         .or(keyword("is"))
         .or(keyword("like"))
         .or(keyword("regexp"))
-        .or(keyword("not in"))
+        .or(keywords2("not", "in"))
         .or(keyword("in"))
         .map(|op| {
             let bin_op = match op.as_str() {
@@ -587,6 +607,15 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     skip_many(one_of(" \n\t\r".chars()))
+}
+
+fn keywords2<I>(kw1: &'static str, kw2: &'static str) -> impl Parser<Input = I, Output = String>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    (strn(kw1).skip(many_blank()), strn(kw2).skip(many_blank()))
+        .map(|(s1, s2)| s1.to_string() + " " + s2)
 }
 
 fn keyword<I>(kw: &'static str) -> impl Parser<Input = I, Output = String>
