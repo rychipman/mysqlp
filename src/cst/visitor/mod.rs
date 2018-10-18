@@ -5,7 +5,7 @@ mod test;
 
 use super::{
     AliasedColumn, BinaryOp, ColumnName, DerivedTable, Expr, Join, JoinPredicate, Limit, Literal,
-    Number, Projects, Select, Statement, Table, TableExpr, TableName, UnaryOp,
+    Number, Projects, Select, Statement, Table, TableName, UnaryOp,
 };
 
 pub trait Visitor {
@@ -64,19 +64,8 @@ pub trait Visitor {
             self.visit_limit(limit);
         }
 
-        if let Some(ref mut table_expr) = select.table {
-            self.visit_table_expr(table_expr);
-        }
-    }
-
-    fn visit_table_expr(&mut self, table_expr: &mut TableExpr) {
-        match table_expr {
-            TableExpr::List(ref mut tables) => {
-                for mut table in tables {
-                    self.visit_table(table);
-                }
-            }
-            TableExpr::Table(ref mut table) => self.visit_table(table),
+        if let Some(ref mut table) = select.table {
+            self.visit_table(table);
         }
     }
 

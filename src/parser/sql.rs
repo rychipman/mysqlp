@@ -65,12 +65,12 @@ where
     keyword("select").with(spec)
 }
 
-fn from<I>() -> impl Parser<Input = I, Output = cst::TableExpr>
+fn from<I>() -> impl Parser<Input = I, Output = cst::Table>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    keyword("from").with(table_expr())
+    keyword("from").with(table())
 }
 
 fn where_clause<I>() -> impl Parser<Input = I, Output = cst::Expr>
@@ -89,29 +89,20 @@ where
     keywords2("order", "by").with(expr())
 }
 
-fn join_or_table<I>() -> impl Parser<Input = I, Output = cst::Table>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    choice!(attempt(join()), table())
-}
-
 fn table<I>() -> impl Parser<Input = I, Output = cst::Table>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    choice!(table_name(), derived_table())
+    attempt(join()).or(non_join_table())
 }
 
-fn table_expr<I>() -> impl Parser<Input = I, Output = cst::TableExpr>
+fn non_join_table<I>() -> impl Parser<Input = I, Output = cst::Table>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    // TODO: add table list
-    choice!(join_or_table()).map(cst::TableExpr::Table)
+    table_name().or(derived_table())
 }
 
 fn table_name<I>() -> impl Parser<Input = I, Output = cst::Table>
@@ -165,15 +156,15 @@ parser!{
     ]
     {
         // TODO: perhaps refactor this to use chainl1 or chainr1
-        let explicit_join = (optional(join_kind()), keyword("join"));
-        let comma_join = (value(None), keyword(","));
+        let explicit_join = optional(join_kind()).skip(keyword("join"));
+        let comma_join = value(None).skip(keyword(","));
         (
-            table(),
+            non_join_table(),
             explicit_join.or(comma_join),
-            join_or_table(),
+            table(),
             optional(join_predicate()),
         )
-            .map(|(t1, (kind, _), t2, pred)| {
+            .map(|(t1, kind, t2, pred)| {
                 cst::Table::Join(cst::Join {
                     kind: kind.unwrap_or(cst::JoinKind::Inner),
                     left: Box::new(t1),
