@@ -211,10 +211,10 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     choice!(
-        keyword("left").map(|_| cst::JoinKind::Left),
-        keyword("right").map(|_| cst::JoinKind::Left),
-        keyword("inner").map(|_| cst::JoinKind::Left),
-        keyword("outter").map(|_| cst::JoinKind::Left)
+        (keyword("left"), optional(keyword("outer"))).map(|_| cst::JoinKind::Left),
+        (keyword("right"), optional(keyword("outer"))).map(|_| cst::JoinKind::Right),
+        keyword("inner").map(|_| cst::JoinKind::Inner),
+        keyword("outer").map(|_| cst::JoinKind::Outer)
     )
 }
 

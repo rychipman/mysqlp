@@ -115,7 +115,7 @@ pub enum JoinKind {
     Left,
     Right,
     Inner,
-    Outter,
+    Outer,
 }
 
 #[derive(Debug, PartialEq)]
