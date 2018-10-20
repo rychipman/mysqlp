@@ -1,33 +1,41 @@
 use cst;
 
+#[derive(Serialize)]
 pub enum Statement {
-    Select(SelectStatement),
+    Select(Select),
+    SimpleSelect(SimpleSelect),
+    Union(Union),
     Set(Set),
     Use(Use),
     DropTable(DropTable),
 }
 
+#[derive(Serialize)]
 pub struct Use {
     pub db_name: String,
 }
 
+#[derive(Serialize)]
 pub struct CTE {
     pub table_name: TableName,
     pub column_exprs: Vec<ColName>,
     pub query: SelectStatement,
 }
 
+#[derive(Serialize)]
 pub struct With {
     pub ctes: Vec<CTE>,
     pub recursive: bool,
 }
 
+#[derive(Serialize)]
 pub enum SelectStatement {
     SimpleSelect(SimpleSelect),
     Select(Select),
     Union(Union),
 }
 
+#[derive(Serialize)]
 pub struct Select {
     pub with: Option<With>,
     pub comments: Vec<String>,
@@ -41,11 +49,13 @@ pub struct Select {
     pub lock: String, // TODO what is this?
 }
 
+#[derive(Serialize)]
 pub struct QueryGlobals {
     pub distinct: bool,
     pub straight_join: bool,
 }
 
+#[derive(Serialize)]
 pub struct Union {
     pub with: With,
     pub typ: String,
@@ -53,6 +63,7 @@ pub struct Union {
     pub right: Box<SelectStatement>,
 }
 
+#[derive(Serialize)]
 pub enum UnionType {
     Union,
     UnionAll,
@@ -61,12 +72,14 @@ pub enum UnionType {
     Intersect,
 }
 
+#[derive(Serialize)]
 pub struct Set {
     pub scope: String,
     pub comments: Vec<String>,
     pub exprs: Vec<UpdateExpr>,
 }
 
+#[derive(Serialize)]
 pub struct DropTable {
     pub name: TableName,
     pub exists: bool,
@@ -74,52 +87,62 @@ pub struct DropTable {
     pub opt: Option<DropTableModifier>,
 }
 
+#[derive(Serialize)]
 pub enum DropTableModifier {
     Restrict,
     Cascade,
 }
 
+#[derive(Serialize)]
 pub enum SelectExpr {
     StarExpr(StarExpr),
     NonStarExpr(NonStarExpr),
 }
 
+#[derive(Serialize)]
 pub struct StarExpr {
     pub database_name: String,
     pub table_name: String,
 }
 
+#[derive(Serialize)]
 pub struct NonStarExpr {
     pub expr: Expr,
     pub alias: Option<String>,
 }
 
+#[derive(Serialize)]
 pub enum TableExpr {
     Aliased(AliasedTableExpr),
     Paren(ParenTableExpr),
     Join(JoinTableExpr),
 }
 
+#[derive(Serialize)]
 pub struct AliasedTableExpr {
     pub expr: SimpleTableExpr,
     pub alias: String,
     pub hints: IndexHints,
 }
 
+#[derive(Serialize)]
 pub enum SimpleTableExpr {
     TableName(TableName),
     Subquery(Subquery),
 }
 
+#[derive(Serialize)]
 pub struct TableName {
     pub name: String,
     pub qualifier: String,
 }
 
+#[derive(Serialize)]
 pub struct ParenTableExpr {
     pub expr: Box<TableExpr>,
 }
 
+#[derive(Serialize)]
 pub struct JoinTableExpr {
     pub left: Box<TableExpr>,
     pub right: Box<TableExpr>,
@@ -128,6 +151,7 @@ pub struct JoinTableExpr {
     pub using: Vec<ColName>,
 }
 
+#[derive(Serialize)]
 pub enum JoinKind {
     Join,
     Straight,
@@ -139,6 +163,7 @@ pub enum JoinKind {
     NaturalRight,
 }
 
+#[derive(Serialize)]
 pub struct IndexHints {
     pub typ: String,
     pub indexes: Vec<String>,
@@ -151,16 +176,19 @@ pub struct IndexHints {
 // AST_FORCE  = "force"
 // )
 
+#[derive(Serialize)]
 pub struct Where {
     pub typ: WhereType,
     pub expr: Expr,
 }
 
+#[derive(Serialize)]
 pub enum WhereType {
     Where,
     Having,
 }
 
+#[derive(Serialize)]
 pub enum Expr {
     And,
     Or,
@@ -190,25 +218,30 @@ pub enum Expr {
     CaseExpr,
 }
 
+#[derive(Serialize)]
 pub struct AndExpr {
     pub left: Box<Expr>,
     pub right: Box<Expr>,
 }
 
+#[derive(Serialize)]
 pub struct OrExpr {
     pub left: Box<Expr>,
     pub right: Box<Expr>,
 }
 
+#[derive(Serialize)]
 pub struct XorExpr {
     pub left: Box<Expr>,
     pub right: Box<Expr>,
 }
 
+#[derive(Serialize)]
 pub struct NotExpr {
     pub expr: Box<Expr>,
 }
 
+#[derive(Serialize)]
 pub struct ComparisonExpr {
     pub left: Box<Expr>,
     pub right: Box<Expr>,
@@ -216,6 +249,7 @@ pub struct ComparisonExpr {
     pub subquery_op: SubqueryOp,
 }
 
+#[derive(Serialize)]
 pub enum ComparisonOp {
     Eq,
     Lt,
@@ -230,12 +264,14 @@ pub enum ComparisonOp {
     Not,
 }
 
+#[derive(Serialize)]
 pub enum SubqueryOp {
     All,
     Any,
     Sum,
 }
 
+#[derive(Serialize)]
 pub enum LikeOp {
     Like,
     LikeBinary,
@@ -243,6 +279,7 @@ pub enum LikeOp {
     NotLikeBinary,
 }
 
+#[derive(Serialize)]
 pub struct LikeExpr {
     pub op: LikeOp,
     pub left: Box<Expr>,
@@ -250,6 +287,7 @@ pub struct LikeExpr {
     pub escape: Box<Expr>,
 }
 
+#[derive(Serialize)]
 pub struct RangeCond {
     pub left: Box<Expr>,
     pub from: Box<Expr>,
@@ -257,11 +295,13 @@ pub struct RangeCond {
     pub op: RangeCondOp,
 }
 
+#[derive(Serialize)]
 pub enum RangeCondOp {
     Between,
     NotBetween,
 }
 
+#[derive(Serialize)]
 pub struct Regex {
     pub operand: Box<Expr>,
     pub pattern: Box<Expr>,
@@ -269,15 +309,18 @@ pub struct Regex {
 
 type RLike = Regex;
 
+#[derive(Serialize)]
 pub struct Exists {
     pub subquery: Subquery,
 }
 
+#[derive(Serialize)]
 pub struct DateVal {
     pub name: DateType,
     pub val: String,
 }
 
+#[derive(Serialize)]
 pub enum DateType {
     Date,
     Time,
@@ -294,12 +337,14 @@ struct UnknownVal;
 struct TrueVal;
 struct FalseVal;
 
+#[derive(Serialize)]
 pub struct ColName {
     pub database: String,
     pub name: String,
     pub qualifier: String,
 }
 
+#[derive(Serialize)]
 pub enum Tuple {
     ValTuple(ValTuple),
     Subquery(Subquery),
@@ -307,17 +352,20 @@ pub enum Tuple {
 
 type ValTuple = Vec<Expr>;
 
+#[derive(Serialize)]
 pub struct Subquery {
     pub select: SelectStatement,
     pub is_derived: bool,
 }
 
+#[derive(Serialize)]
 pub struct BinaryExpr {
     pub operator: BinaryOp,
     pub left: Box<Expr>,
     pub right: Box<Expr>,
 }
 
+#[derive(Serialize)]
 pub enum BinaryOp {
     BitAnd,
     BitOr,
@@ -330,17 +378,20 @@ pub enum BinaryOp {
     Mod,
 }
 
+#[derive(Serialize)]
 pub struct UnaryExpr {
     pub expr: Box<Expr>,
     pub operator: UnaryOp,
 }
 
+#[derive(Serialize)]
 pub enum UnaryOp {
     Plus,
     Minus,
     Tilde,
 }
 
+#[derive(Serialize)]
 pub struct Func {
     pub name: String,
     pub distinct: bool,
@@ -349,12 +400,14 @@ pub struct Func {
     pub separator: String,
 }
 
+#[derive(Serialize)]
 pub struct Case {
     pub expr: Box<Expr>,
     pub whens: Vec<When>,
     pub else_: Box<Expr>,
 }
 
+#[derive(Serialize)]
 pub struct When {
     pub cond: Expr,
     pub val: Expr,
@@ -363,26 +416,31 @@ pub struct When {
 type GroupBy = Vec<Expr>;
 type OrderBy = Vec<Order>;
 
+#[derive(Serialize)]
 pub struct Order {
     pub expr: Expr,
     pub direction: OrderDirection,
 }
 
+#[derive(Serialize)]
 pub enum OrderDirection {
     Asc,
     Desc,
 }
 
+#[derive(Serialize)]
 pub struct Limit {
     pub row_count: Expr,
     pub offset: Option<Expr>,
 }
 
+#[derive(Serialize)]
 pub struct UpdateExpr {
     pub name: ColName,
     pub expr: Expr,
 }
 
+#[derive(Serialize)]
 pub struct SimpleSelect {
     pub comments: Vec<String>,
     pub query_globals: QueryGlobals,
@@ -390,6 +448,7 @@ pub struct SimpleSelect {
     pub limit: Limit,
 }
 
+#[derive(Serialize)]
 pub enum ShowModifier {
     None,
     Full,
@@ -397,6 +456,7 @@ pub enum ShowModifier {
     Global,
 }
 
+#[derive(Serialize)]
 pub struct Show {
     pub section: String, // TODO probably an enum
     pub key: String,
@@ -405,6 +465,7 @@ pub struct Show {
     pub modifier: ShowModifier,
 }
 
+#[derive(Serialize)]
 pub enum ExplainType {
     Extended,
     Json,
@@ -412,6 +473,7 @@ pub enum ExplainType {
     Partitions,
 }
 
+#[derive(Serialize)]
 pub struct Explain {
     pub section: String, // TODO this is probably an enum
     pub table: TableName,
@@ -421,30 +483,36 @@ pub struct Explain {
     pub statement: Box<Statement>,
 }
 
+#[derive(Serialize)]
 pub enum KillScope {
     Connection,
     Query,
 }
 
+#[derive(Serialize)]
 pub struct Kill {
     pub scope: KillScope,
     pub id: Expr,
 }
 
+#[derive(Serialize)]
 pub enum FlushKind {
     Logs,
     Sample,
 }
 
+#[derive(Serialize)]
 pub struct Flush {
     pub kind: FlushKind,
 }
 
+#[derive(Serialize)]
 pub struct AlterTable {
     table: TableName,
     specs: Vec<AlterSpec>,
 }
 
+#[derive(Serialize)]
 pub enum AlterationType {
     RenameColumn,
     DropColumn,
@@ -452,6 +520,7 @@ pub enum AlterationType {
     RenameTable,
 }
 
+#[derive(Serialize)]
 pub struct AlterSpec {
     pub type_: AlterationType,
     pub column: ColName,
@@ -460,10 +529,12 @@ pub struct AlterSpec {
     pub new_column_type: String,
 }
 
+#[derive(Serialize)]
 pub struct RenameTable {
     pub renames: Vec<RenameSpec>,
 }
 
+#[derive(Serialize)]
 pub struct RenameSpec {
     pub table: TableName,
     pub new_table: TableName,
