@@ -10,6 +10,17 @@ pub enum Statement {
     DropTable(DropTable),
 }
 
+impl Statement {
+    fn from_cst(stmt: &cst::Statement) -> Statement {
+        match stmt {
+            cst::Statement::Select(sel) => {
+                Statement::Select(SelectStatement::Select(Select::from_cst(sel)))
+            }
+            //_ => unimplemented!(),
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct Use {
     pub db_name: String,
@@ -47,6 +58,29 @@ pub struct Select {
     pub order_by: Option<OrderBy>,
     pub limit: Option<Limit>,
     pub lock: String, // TODO what is this?
+}
+
+impl Select {
+    fn from_cst(sel: &cst::Select) -> Select {
+        Select {
+            with: None,           // TODO support in cst
+            comments: Vec::new(), // TODO cst
+            query_globals: QueryGlobals {
+                distinct: false,      // TODO cst
+                straight_join: false, // TODO cst
+            },
+            select_exprs: SelectExpr::from_cst(&sel.projects),
+            where_: sel.where_clause.as_ref().map(|expr| Where {
+                expr: Expr::from_cst(expr),
+                typ: WhereType::Where,
+            }),
+            group_by: None, // TODO cst
+            having: None,   // TODO cst
+            order_by: None, // TODO
+            limit: sel.limit.as_ref().map(Limit::from_cst),
+            lock: "".to_string(), // TODO cst
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -99,16 +133,50 @@ pub enum SelectExpr {
     NonStarExpr(NonStarExpr),
 }
 
+impl SelectExpr {
+    // TODO this is all very bad. need to fix star in cst
+    fn from_cst(s: &cst::Projects) -> Vec<SelectExpr> {
+        use cst::Projects::{NonStar, Star};
+        match s {
+            Star => vec![SelectExpr::StarExpr(StarExpr::from_cst())],
+            NonStar(cols) => cols
+                .iter()
+                .map(NonStarExpr::from_cst)
+                .map(SelectExpr::NonStarExpr)
+                .collect(),
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct StarExpr {
     pub database_name: String,
     pub table_name: String,
 }
 
+impl StarExpr {
+    // TODO this should take real params
+    fn from_cst() -> StarExpr {
+        StarExpr {
+            database_name: "".to_string(),
+            table_name: "".to_string(),
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct NonStarExpr {
     pub expr: Expr,
     pub alias: Option<String>,
+}
+
+impl NonStarExpr {
+    fn from_cst(col: &cst::AliasedColumn) -> NonStarExpr {
+        NonStarExpr {
+            expr: Expr::from_cst(&col.expr),
+            alias: col.alias.clone(),
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -216,6 +284,31 @@ pub enum Expr {
     UnaryExpr,
     FuncExpr,
     CaseExpr,
+}
+
+impl Expr {
+    fn from_cst(expr: &cst::Expr) -> Expr {
+        use cst::{Expr as CExpr, UnaryOp as CUnaryOp};
+        match expr {
+            CExpr::Binary(..) => Expr::And,
+            CExpr::Unary(CUnaryOp::Not, expr) => NotExpr {
+                expr: Box::new(Expr::from_cst(expr)),
+            },
+            CExpr::Unary(op, expr) => UnaryExpr {
+                expr: Box::new(Expr::from_cst(expr)),
+                operator: match op {
+                    CUnaryOp::Plus => UnaryOp::Plus,
+                    CUnaryOp::Minus => UnaryOp::Minus,
+                    CUnaryOp::Tilde => UnaryOp::Tilde,
+                },
+            },
+            CExpr::Literal(_) => Expr::And,
+            CExpr::Column(_) => Expr::And,
+            CExpr::ScalarFunc(..) => Expr::And,
+            CExpr::AggFunc(..) => Expr::And,
+            CExpr::Case => Expr::And,
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -432,6 +525,15 @@ pub enum OrderDirection {
 pub struct Limit {
     pub row_count: Expr,
     pub offset: Option<Expr>,
+}
+
+impl Limit {
+    fn from_cst(lim: &cst::Limit) -> Limit {
+        Limit {
+            row_count: Expr::from_cst(&lim.count),
+            offset: lim.offset.as_ref().map(Expr::from_cst),
+        }
+    }
 }
 
 #[derive(Serialize)]
