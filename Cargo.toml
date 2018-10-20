@@ -7,6 +7,3 @@ authors = ["Ryan Chipman <ryan@ryanchipman.com>"]
 bytes = "0.4.10"
 combine = "3.6"
 lazy_static = "1.1.0"
-serde = "1.0"
-serde_derive = "1.0"
-serde_json = "1.0"
